@@ -4,7 +4,6 @@ from torchvision import transforms
 from PIL import Image
 import cv2, torch
 
-# img = Image.open('/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/caltech-101/101_ObjectCategories/accordion/image_0001.jpg')
 def extract_from_resnet50(image_path):
     img = Image.open(image_path)
 
@@ -24,5 +23,6 @@ def extract_from_resnet50(image_path):
 
     image_tensor = preprocess(img)
     image_tensor = torch.unsqueeze(image_tensor, 0)
+    # print(image_tensor.size()[2])
     # print(resnet50_feature_extractor(image_tensor)['layer3'])
     return resnet50_feature_extractor(image_tensor)

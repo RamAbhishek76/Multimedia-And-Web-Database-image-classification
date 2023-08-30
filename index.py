@@ -1,5 +1,6 @@
 import torch, cv2, math, os, pandas
 from PIL import Image, ImageStat
+from torchvision import transforms
 
 from resnet import extract_from_resnet50 
 
@@ -92,23 +93,42 @@ for category in os.listdir(caltech101):
     layer3 = []
     fc = []
     print(category)
-    cat_path = os.path.join(caltech101, category)
+    cat_path = os.path.join(caltech101, 'accordion')
     for image in os.listdir(cat_path):
-        img = cv2.imread(os.path.join(cat_path, image))
         print(image)
-        images.append(category + image.split('.')[0])
-        categories.append(category)
-        
-        
-        color_moments.append(extract_color_moment(img))
-        
-        #Extracting features from resnet50 using custom function
-        resnet_features = extract_from_resnet50(os.path.join(cat_path, image))
-        layer3.append(resnet_features['layer3'].detach())
-        fc.append(resnet_features['fc'].detach())
-        avgpool.append(resnet_features['avgpool'].detach())
+        image_path = os.path.join(cat_path, image)
+
+        # Image is being read as an multi-dim array of pixels for extracting HOG and Color moments
+        img = cv2.imread(image_path)
+        # image is being read as JpegImageFile Class for input to torchvision transformation models
+        resnet_input = Image.open(image_path)
+
+        preprocess = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+        ])
+
+        image_tensor = preprocess(resnet_input)
+        image_tensor = torch.unsqueeze(image_tensor, 0)
+        if image_tensor.size()[1] == 3:
+            images.append(category + image.split('.')[0])
+            categories.append(category)
+
+            # Calculating the color moments with a custom defined func
+            color_moments.append(extract_color_moment(img))
+            
+            # ToDo: Implement HOG extraction
+
+            #Extracting features from resnet50 using custom function
+            resnet_features = extract_from_resnet50(os.path.join(cat_path, image))
+
+            layer3.append(resnet_features['layer3'].detach())
+            fc.append(resnet_features['fc'].detach())
+            avgpool.append(resnet_features['avgpool'].detach())
+
     print({'avgpool': len(avgpool), 'layer3': len(layer3), 'fc': len(fc), 'cm': len(color_moments)})
     out = pandas.DataFrame({'Image': images, 'Category': categories, 'Color Moment': color_moments, 'AvgPool': avgpool, 'Layer 3': layer3, 'FC': fc })
-    existing = pandas.read_csv('cache_out.csv')
-    pandas.concat([existing, out], axis=0)
-    existing.to_csv('cache_out.csv')
+    # existing = pandas.read_csv('cache_out.csv')
+    # pandas.concat([existing, out], axis=0)
+    out.to_csv('cache_out.csv')
+    break

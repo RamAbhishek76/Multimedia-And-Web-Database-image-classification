@@ -1,5 +1,7 @@
 import torch, cv2, math, os, pandas
+from PIL import Image, ImageStat
 
+from resnet import extract_from_resnet50 
 
 def extract_color_moment(img):
     # Resizing the image into 300x100 size
@@ -80,16 +82,33 @@ def extract_color_moment(img):
     return color_moments
 
 
-caltech101 = '/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/caltech-101/101_ObjectCategories/accordion/'
+caltech101 = '/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/caltech-101/101_ObjectCategories/'
 
-images = []
-color_moments = []
-
-for image in os.listdir(caltech101):
-    print(image)
-    images.append(image.split('.')[0])
-    img = cv2.imread(os.path.join(caltech101, image))
-    color_moments.append(extract_color_moment(img))
-
-out = pandas.DataFrame({'Image': images, 'Color Moment': color_moments})
-out.to_csv('out.csv')
+for category in os.listdir(caltech101):
+    images = []
+    color_moments = []
+    categories = []
+    avgpool = []
+    layer3 = []
+    fc = []
+    print(category)
+    cat_path = os.path.join(caltech101, category)
+    for image in os.listdir(cat_path):
+        img = cv2.imread(os.path.join(cat_path, image))
+        print(image)
+        images.append(category + image.split('.')[0])
+        categories.append(category)
+        
+        
+        color_moments.append(extract_color_moment(img))
+        
+        #Extracting features from resnet50 using custom function
+        resnet_features = extract_from_resnet50(os.path.join(cat_path, image))
+        layer3.append(resnet_features['layer3'].detach())
+        fc.append(resnet_features['fc'].detach())
+        avgpool.append(resnet_features['avgpool'].detach())
+    print({'avgpool': len(avgpool), 'layer3': len(layer3), 'fc': len(fc), 'cm': len(color_moments)})
+    out = pandas.DataFrame({'Image': images, 'Category': categories, 'Color Moment': color_moments, 'AvgPool': avgpool, 'Layer 3': layer3, 'FC': fc })
+    existing = pandas.read_csv('cache_out.csv')
+    pandas.concat([existing, out], axis=0)
+    existing.to_csv('cache_out.csv')

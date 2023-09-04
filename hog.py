@@ -43,14 +43,16 @@ def extract_hog(img):
             # print(atan[i][j], end=" ")
         # print("\n")
     
-    res = [0 for i in range(9)]
+    res = []
 
     for i in range(len(atan)):
+        temp_hog = [0 for i in range(9)]
         for j in range(len(atan[i])):
             if(atan[i][j] >= 0):
-                res[int(atan[i][j]/40)] += g[i][j]
+                temp_hog[int(atan[i][j]/40)] += g[i][j]
             else:
-                res[int((360 + atan[i][j])/40)] += g[i][j]
+                temp_hog[int((360 + atan[i][j])/40)] += g[i][j]
+        res.append(temp_hog)
     
     return res
 

@@ -4,6 +4,21 @@ from torchvision import transforms
 from PIL import Image
 import cv2, torch
 
+def process_avgpool(avgpool):
+    res = []
+    avgpool = avgpool.detach().numpy().flatten()
+    for i in range(0, len(avgpool) - 1, 2):
+        res.append((avgpool[i] + avgpool[i+1])/2)
+    print(len(res))
+    return res
+
+def process_layer3(layer3):
+    res = []
+    layer3 = layer3.detach().numpy()[0]
+    for i in range(0, len(layer3)):
+        res.append(sum(layer3[i].flatten())/(14*14))
+    return res
+
 def extract_from_resnet50(image_path):
     img = Image.open(image_path)
 
@@ -23,6 +38,19 @@ def extract_from_resnet50(image_path):
 
     image_tensor = preprocess(img)
     image_tensor = torch.unsqueeze(image_tensor, 0)
-    # print(image_tensor.size()[2])
-    # print(resnet50_feature_extractor(image_tensor)['layer3'])
-    return resnet50_feature_extractor(image_tensor)
+    
+    features = resnet50_feature_extractor(image_tensor)
+    processed_avgpool = process_avgpool(features['avgpool'])
+    processed_fc = features['fc']
+    processed_layer3 = process_layer3(features['layer3'])
+    processed_features = {
+        "avgpool": processed_avgpool,
+        "layer3": processed_layer3,
+        "fc": processed_fc
+    }
+
+    process_avgpool(features['avgpool'])
+
+    return processed_features
+
+extract_from_resnet50('/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/caltech-101/101_ObjectCategories/accordion/image_0001.jpg')

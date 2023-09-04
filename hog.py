@@ -35,13 +35,13 @@ def extract_hog(img):
         for j in range(0, len(gx[0])):
             if(gx[i][j] == 0 and gy[i][j] == 0):
                 atan[i][j] = 0
-            # elif(gx[i][j] == 0 or gy[i][j] == 0):
-            #     atan[i][j] = 90
+            elif(gx[i][j] == 0 or gy[i][j] == 0):
+                atan[i][j] = 90
             else:
                 atan[i][j] = numpy.rad2deg(numpy.arctan(gy[i][j]/gx[i][j]))
             # print(str(gy[i][j]) + " " + str(gx[i][j]) + " " + str(gy[i][j]/gx[i][j]), end=" ")
-            print(atan[i][j], end=" ")
-        print("\n")
+            # print(atan[i][j], end=" ")
+        # print("\n")
     
     res = [0 for i in range(9)]
 
@@ -57,5 +57,4 @@ def extract_hog(img):
 # # Test code
 # img = cv2.imread('/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/caltech-101/101_ObjectCategories/accordion/image_0001.jpg')
 # img = cv2.resize(img, (300, 100))
-
 # print(extract_hog(img))

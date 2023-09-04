@@ -3,6 +3,7 @@ from PIL import Image, ImageStat
 from torchvision import transforms
 
 from resnet import extract_from_resnet50 
+from hog import extract_hog
 
 def extract_color_moment(img):
     # Resizing the image into 300x100 size
@@ -88,12 +89,14 @@ caltech101 = '/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and
 for category in os.listdir(caltech101):
     images = []
     color_moments = []
+    hog = []
     categories = []
     avgpool = []
     layer3 = []
     fc = []
     print(category)
-    cat_path = os.path.join(caltech101, 'accordion')
+    # cat_path = os.path.join(caltech101, 'accordion')
+    cat_path = os.path.join(caltech101, category)
     for image in os.listdir(cat_path):
         print(image)
         image_path = os.path.join(cat_path, image)
@@ -114,10 +117,14 @@ for category in os.listdir(caltech101):
             images.append(category + image.split('.')[0])
             categories.append(category)
 
+            #########################################
+            #### Feature Calculation Starts here ####
+            #########################################
+
             # Calculating the color moments with a custom defined func
             color_moments.append(extract_color_moment(img))
             
-            # ToDo: Implement HOG extraction
+            hog = hog.append(extract_hog(img))
 
             #Extracting features from resnet50 using custom function
             resnet_features = extract_from_resnet50(os.path.join(cat_path, image))
@@ -131,4 +138,4 @@ for category in os.listdir(caltech101):
     # existing = pandas.read_csv('cache_out.csv')
     # pandas.concat([existing, out], axis=0)
     out.to_csv('cache_out.csv')
-    break
+    # break

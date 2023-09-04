@@ -1,92 +1,26 @@
-import torch, cv2, math, os, pandas
+import torch, cv2, math, os, pandas, time, logging
 from PIL import Image, ImageStat
 from torchvision import transforms
 
 from resnet import extract_from_resnet50 
 from hog import extract_hog
+from database_connection import connect_to_mongo
+from color_moment import extract_color_moment
 
-def extract_color_moment(img):
-    # Resizing the image into 300x100 size
-    resized_img = cv2.resize(img, (300, 100))
+start_time=  time.time()
+run_times = []
 
-    # Creating a 10x10 grid out of the image
-    binned_img = []
-
-    for i in range(10):
-        temp = []
-        for j in range(10):
-            temp.append([])
-        binned_img.append(temp)
-
-    for i in range(len(resized_img)):
-        for j in range(len(resized_img[i])):
-            binned_img[int(i/10)][int(j/30)].append([i for i in resized_img[i][j]])
-
-    # print(len(binned_img))
-    # print(len(binned_img[0]), len(binned_img[0][0]))
-
-    sdev = []
-    skw = []
-
-    mean_vals = [[[0,0,0] for i in range(10)] for i in range(10)]
-    sdev_vals = [[[0,0,0] for i in range(10)] for i in range(10)]
-    skew_vals = [[[0,0,0] for i in range(10)] for i in range(10)]
-    # Mean values for RGB
-    for row in range(len(binned_img)):
-        for col in range(len(binned_img[row])):
-            for i in binned_img[row][col]:
-                mean_vals[row][col][0] += i[0]
-                mean_vals[row][col][1] += i[1]
-                mean_vals[row][col][2] += i[2]
-    # print(mean_vals)
-
-    for r in range(len(mean_vals)):
-        for c in range(len(mean_vals[r])):
-            mean_vals[r][c] = [round(i/300,2) for i in mean_vals[r][c]]
-
-    #print(mean_vals)
-
-    # Standard Deviation values for RGB
-    for row in range(len(binned_img)):
-        for col in range(len(binned_img[row])):
-            for i in binned_img[row][col]:
-                sdev_vals[row][col][0] += round((i[0] - mean_vals[row][col][0])**2, 2)
-                sdev_vals[row][col][1] += round((i[1] - mean_vals[row][col][1])**2, 2)
-                sdev_vals[row][col][2] += round((i[2] - mean_vals[row][col][2])**2, 2)
-
-    for r in range(len(sdev_vals)):
-        for c in range(len(sdev_vals[r])):
-            sdev_vals[r][c] = [round(math.sqrt((i/300)),2) for i in sdev_vals[r][c]]
-
-    #print(sdev_vals)
-
-    # Skew values for RGB
-    for row in range(len(binned_img)):
-        for col in range(len(binned_img[row])):
-            for i in binned_img[row][col]:
-                skew_vals[row][col][0] += round((i[0] - mean_vals[row][col][0])**3, 2)
-                skew_vals[row][col][1] += round((i[1] - mean_vals[row][col][1])**3, 2)
-                skew_vals[row][col][2] += round((i[2] - mean_vals[row][col][2])**3, 2)
-
-    for r in range(len(sdev_vals)):
-        for c in range(len(sdev_vals[r])):
-            skew_vals[r][c] = [round((i/300)**(1./3.),2) for i in sdev_vals[r][c]]
-
-    #print(skew_vals)
-
-    color_moments = [[i for i in range(10)] for i in range(10)]
-
-    # Color moments for RGB
-    for row in range(len(skew_vals)):
-        for col in range(len(skew_vals[row])):
-            color_moments[row][col] = [[mean_vals[row][col][i], sdev_vals[row][col][i], skew_vals[row][col][i]] for i in range(3)]
-
-    return color_moments
-
+#############################################################
+#### Establish Database Connection and Collection Setup #####
+#############################################################
+mongo_client = connect_to_mongo()
+dbname = mongo_client.cse515_project_phase1
+collection = dbname.caltech_101_features
 
 caltech101 = '/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/caltech-101/101_ObjectCategories/'
+category_names = sorted([name for name in os.listdir(caltech101)])
 
-for category in os.listdir(caltech101):
+for category in category_names:
     images = []
     color_moments = []
     hog = []
@@ -97,12 +31,17 @@ for category in os.listdir(caltech101):
     print(category)
     # cat_path = os.path.join(caltech101, 'accordion')
     cat_path = os.path.join(caltech101, category)
+
+    cat_start_time = time.time()
     for image in os.listdir(cat_path):
         print(image)
+        image_features = {}
         image_path = os.path.join(cat_path, image)
 
         # Image is being read as an multi-dim array of pixels for extracting HOG and Color moments
         img = cv2.imread(image_path)
+        # Resizing the image into 300x100 size
+        img = cv2.resize(img, (300, 100))
         # image is being read as JpegImageFile Class for input to torchvision transformation models
         resnet_input = Image.open(image_path)
 
@@ -114,17 +53,23 @@ for category in os.listdir(caltech101):
         image_tensor = preprocess(resnet_input)
         image_tensor = torch.unsqueeze(image_tensor, 0)
         if image_tensor.size()[1] == 3:
-            images.append(category + image.split('.')[0])
+            images.append(category + "_" + image.split('.')[0])
+            image_features["image_name"] = category + "_" + image.split('.')[0]
             categories.append(category)
+            image_features["category"] = category
 
             #########################################
             #### Feature Calculation Starts here ####
             #########################################
 
             # Calculating the color moments with a custom defined func
-            color_moments.append(extract_color_moment(img))
+            img_color_moment = extract_color_moment(img)
+            color_moments.append(img_color_moment)
+            image_features["color_moment"] = img_color_moment
             
-            hog = hog.append(extract_hog(img))
+            image_hog = extract_hog(img)
+            hog.append(image_hog)
+            image_features["hog"] = image_hog
 
             #Extracting features from resnet50 using custom function
             resnet_features = extract_from_resnet50(os.path.join(cat_path, image))
@@ -133,9 +78,18 @@ for category in os.listdir(caltech101):
             fc.append(resnet_features['fc'].detach())
             avgpool.append(resnet_features['avgpool'].detach())
 
+            image_features["layer3"] = resnet_features['layer3'].detach().numpy().tolist()
+            image_features["fc"] = resnet_features['fc'].detach().numpy().tolist()
+            image_features["avgpool"] = resnet_features['avgpool'].detach().numpy().tolist()
+        print(collection.insert_one(image_features))
+
     print({'avgpool': len(avgpool), 'layer3': len(layer3), 'fc': len(fc), 'cm': len(color_moments)})
-    out = pandas.DataFrame({'Image': images, 'Category': categories, 'Color Moment': color_moments, 'AvgPool': avgpool, 'Layer 3': layer3, 'FC': fc })
-    # existing = pandas.read_csv('cache_out.csv')
-    # pandas.concat([existing, out], axis=0)
-    out.to_csv('cache_out.csv')
-    # break
+    run_times.append({category: time.time() - cat_start_time})
+    logging.warning(str(time.time() - cat_start_time) + " taken to process " + category + "images.")
+
+out = pandas.DataFrame({'Image': images, 'Category': categories, 'Color Moment': color_moments, 'HOG': hog, 'AvgPool': avgpool, 'Layer 3': layer3, 'FC': fc })
+out.to_csv('cache_out.csv')
+
+end_time = time.time()
+logging.warning("Total run time is " + str(end_time - start_time))
+print('Total run-time = ', start_time - end_time)

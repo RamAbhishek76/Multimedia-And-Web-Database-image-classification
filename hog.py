@@ -43,20 +43,24 @@ def extract_hog(img):
             # print(atan[i][j], end=" ")
         # print("\n")
     
-    res = []
+    res = [[[0 for i in range(9)] for j in range(10)] for k in range(10)]
 
     for i in range(len(atan)):
-        temp_hog = [0 for i in range(9)]
         for j in range(len(atan[i])):
             if(atan[i][j] >= 0):
-                temp_hog[int(atan[i][j]/40)] += g[i][j]
+                res[int(i/10)][int(j/30)][int(atan[i][j]/40)] += g[i][j]
             else:
-                temp_hog[int((360 + atan[i][j])/40)] += g[i][j]
-        res.append(temp_hog)
+                res[int(i/10)][int(j/30)][int((360 + atan[i][j])/40)] += g[i][j]
+        
     
     return res
 
 # # Test code
 # img = cv2.imread('/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/caltech-101/101_ObjectCategories/accordion/image_0001.jpg')
 # img = cv2.resize(img, (300, 100))
-# print(extract_hog(img))
+# out = extract_hog(img)
+# print(out)
+# print(len(out))
+# print(out[0])
+# print(len(out[0]))
+# print(len(out[0][0]))

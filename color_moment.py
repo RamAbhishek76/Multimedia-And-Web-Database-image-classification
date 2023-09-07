@@ -80,3 +80,9 @@ def extract_color_moment(img):
 
     return color_moments
 
+# img_path = '/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/caltech-101/101_ObjectCategories/accordion/image_0001.jpg'
+# img = cv2.imread(img_path)
+# # Resizing the image into 300x100 size
+# img = cv2.resize(img, (300, 100))
+
+# print(extract_color_moment(img))

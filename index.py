@@ -13,11 +13,11 @@ run_times = []
 #############################################################
 #### Establish Database Connection and Collection Setup #####
 #############################################################
-# mongo_client = connect_to_mongo()
-# dbname = mongo_client.cse515_project_phase1
-# collection = dbname.caltech_101_features
+mongo_client = connect_to_mongo()
+dbname = mongo_client.cse515_project_phase1
+collection = dbname.torchvision_caltech_101_features
 
-caltech101 = '/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/caltech-101/101_ObjectCategories/'
+caltech101 = '/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/project/caltech101/caltech101/101_ObjectCategories'
 category_names = sorted([name for name in os.listdir(caltech101)])
 
 for category in category_names:
@@ -81,7 +81,7 @@ for category in category_names:
             image_features["layer3"] = resnet_features['layer3']
             image_features["fc"] = resnet_features['fc']
             image_features["avgpool"] = resnet_features['avgpool']
-            # collection.insert_one(image_features)
+            collection.insert_one(image_features)
 
     print({'avgpool': len(avgpool), 'layer3': len(layer3), 'fc': len(fc), 'cm': len(color_moments)})
     run_times.append({category: time.time() - cat_start_time})

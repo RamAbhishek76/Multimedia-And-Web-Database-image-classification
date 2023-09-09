@@ -43,7 +43,7 @@ def extract_color_moment(img):
             skew_B = sum([(i - avg_R)**3 for i in R_bin[i][j]])/300
             skew_B = numpy.sign(skew_B)*((numpy.abs(skew_B))**(1./3.))
 
-            color_moments[i][j] = [[sum_R, sdev_R, skew_R], [sum_G, sdev_G, skew_G], [sum_B, sdev_B, skew_B]]
+            color_moments[i][j] = [[avg_R, sdev_R, skew_R], [avg_G, sdev_G, skew_G], [avg_B, sdev_B, skew_B]]
     
     # print(len(bi))
     # print(len(bi[0]))

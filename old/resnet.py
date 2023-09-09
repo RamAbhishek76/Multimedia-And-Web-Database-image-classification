@@ -2,7 +2,7 @@ from torchvision.models import resnet50
 from torchvision.models.feature_extraction import create_feature_extractor
 from torchvision import transforms
 from PIL import Image
-import cv2, torch, numpy
+import cv2, torch
 
 def process_avgpool(avgpool):
     res = []
@@ -18,10 +18,9 @@ def process_layer3(layer3):
         res.append(sum(layer3[i].flatten())/(14*14))
     return res
 
-def extract_from_resnet(img):
-    #img = Image.open(img)
-    img = (torch.as_tensor(img) * 255).byte().cpu().numpy().transpose((1, 2, 0))
-    img = Image.fromarray(img)
+def extract_from_resnet50(image_path):
+    #img = Image.open(image_path)
+    img = image_path
     features = {
         "avgpool": "avgpool",
         "layer3": "layer3",
@@ -32,7 +31,7 @@ def extract_from_resnet(img):
 
     resnet50_feature_extractor = create_feature_extractor(model, return_nodes=features)
     preprocess = transforms.Compose([
-        # transforms.Resize((224, 224)),
+        transforms.Resize((224, 224)),
         transforms.ToTensor(),
     ])
 

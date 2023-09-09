@@ -23,13 +23,13 @@ print(query_image_features["image"])
 
 img = [cv2.resize(i, (300, 100)) for i in numpy.array(query_image_data['image'])]
 
-query_image_fc = numpy.array(query_image_features['fc'])
+query_image_color_moment = numpy.array(query_image_features['color_moment'])
 if len(img) == 3:
     for document in collection.find({}):
         print(document["image_id"])
-        test = numpy.array(document["fc"]).flatten()
+        test = numpy.array(document["color_moment"]).flatten()
         if len(test) > 0:
-            d = distance.euclidean(test, query_image_fc.flatten())
+            d = distance.euclidean(test, query_image_color_moment.flatten())
             if(d in results):
                 results[d].append([document["image_id"], document["target"]])
             else:

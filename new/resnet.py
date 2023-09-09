@@ -1,8 +1,14 @@
-from torchvision.models import resnet50
+from torchvision.models import resnet50, ResNet50_Weights
 from torchvision.models.feature_extraction import create_feature_extractor
 from torchvision import transforms
 from PIL import Image
 import cv2, torch, numpy
+
+from database_connection import connect_to_mongo
+
+avgpool_output = None
+fc_output = None
+layer3_output = None
 
 def process_avgpool(avgpool):
     res = []
@@ -18,39 +24,33 @@ def process_layer3(layer3):
         res.append(sum(layer3[i].flatten())/(14*14))
     return res
 
+def hook_fn(module, input, output, layer_name):
+    activation_dict[layer_name] = output
+
 def extract_from_resnet(img):
-    #img = Image.open(img)
-    img = (torch.as_tensor(img) * 255).byte().cpu().numpy().transpose((1, 2, 0))
-    img = Image.fromarray(img)
-    features = {
-        "avgpool": "avgpool",
-        "layer3": "layer3",
-        "fc": "fc"
-    }
+    img = (torch.as_tensor(img)).unsqueeze(0)
 
-    model = resnet50()
+    model = resnet50(weights=ResNet50_Weights.DEFAULT)
 
-    resnet50_feature_extractor = create_feature_extractor(model, return_nodes=features)
-    preprocess = transforms.Compose([
-        # transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-    ])
+    activation = {}
+    def get_activation(name):
+        def hook(model, input, output):
+            activation[name] = output.detach()
+        return hook
 
-    image_tensor = preprocess(img)
-    image_tensor = torch.unsqueeze(image_tensor, 0)
-    
-    features = resnet50_feature_extractor(image_tensor)
-    processed_avgpool = process_avgpool(features['avgpool'])
-    processed_fc = features['fc'].detach().numpy().tolist()[0]
-    processed_layer3 = process_layer3(features['layer3'])
+    model.avgpool.register_forward_hook(get_activation('avgpool'))
+    model.fc.register_forward_hook(get_activation('fc'))
+    model.layer3.register_forward_hook(get_activation('layer3'))
+
+    output = model(img)
+
+    processed_avgpool = process_avgpool(activation['avgpool'])
+    processed_fc = activation['fc'].detach().numpy().tolist()[0]
+    processed_layer3 = process_layer3(activation['layer3'])
     processed_features = {
         "avgpool": processed_avgpool,
         "layer3": processed_layer3,
         "fc": processed_fc
     }
 
-    process_avgpool(features['avgpool'])
-
     return processed_features
-
-# extract_from_resnet50('/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/caltech-101/101_ObjectCategories/accordion/image_0001.jpg')

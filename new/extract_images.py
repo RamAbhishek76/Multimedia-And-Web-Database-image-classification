@@ -19,25 +19,31 @@ transforms = transforms.Compose([
 dataset = torchvision.datasets.Caltech101('/home/abhinavgorantla/hdd/ASU/Fall 23 - 24/CSE515 - Multimedia and Web Databases/project/caltech101', transform=transforms)
 data_loader = torch.utils.data.DataLoader(dataset, batch_size=4, shuffle=True, num_workers=8)
 
-for image_ID in range(412, 8677):
+for image_ID in range(834, 8677):
     img, label = dataset[image_ID]
 
     resized_img = [cv2.resize(i, (300, 100)) for i in img.numpy()]
     resized_resnet_img = [cv2.resize(i, (224, 224)) for i in img.numpy()]
 
     if len(resized_img) == 3:
-        color_moment = extract_color_moment(resized_img)
-        hog = extract_hog(resized_img)
+        # color_moment = extract_color_moment(resized_img)
+        # hog = extract_hog(resized_img)
         resnet_features = extract_from_resnet(resized_resnet_img)
+        # print(resnet_features)
 
-        collection.insert_one({
-            "image_id": str(image_ID),
-            "image": img.numpy().tolist(),
-            "target": label,
-            "color_moment": color_moment,
-            "hog": hog,
-            "avgpool": resnet_features["avgpool"],
-            "layer3": resnet_features["layer3"],
-            "fc": resnet_features["fc"],
-        })
+        q = { "image_id": str(image_ID) }
+        vals = { "$set": { "avgpool": resnet_features["avgpool"], "layer3": resnet_features["layer3"], "fc": resnet_features["fc"] } }
+
+        collection.update_one(q, vals)
+
+        # collection.insert_one({
+        #     "image_id": str(image_ID),
+        #     "image": img.numpy().tolist(),
+        #     "target": label,
+        #     "color_moment": color_moment,
+        #     "hog": hog,
+        #     "avgpool": resnet_features["avgpool"],
+        #     "layer3": resnet_features["layer3"],
+        #     "fc": resnet_features["fc"],
+        # })
     print(image_ID)

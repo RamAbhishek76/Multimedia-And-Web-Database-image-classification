@@ -24,13 +24,13 @@ query_image_data = image_collection.find_one({"image_id": im_id})
 
 img = [cv2.resize(i, (300, 100)) for i in numpy.array(query_image_data['image'])]
 
-query_image_fc = numpy.array(query_image_features['fc'])
+query_image_layer3 = numpy.array(query_image_features['layer3'])
 if len(img) == 3:
     for document in collection.find({}):
         # print(document["image_id"])
-        test = numpy.array(document["fc"]).flatten()
+        test = numpy.array(document["layer3"]).flatten()
         if len(test) > 0:
-            d = wasserstein_distance(test, query_image_fc.flatten())*256
+            d = distance.euclidean(test, query_image_layer3.flatten())
             if(d in results):
                 results[d].append([document["image_id"], document["target"]])
             else:

@@ -109,7 +109,7 @@ while choice != 0:
                 image_layer3 = numpy.array(image["layer3"]).flatten()
                 image_fc = numpy.array(image["fc"]).flatten()
 
-                d_cm = distance.cosine(
+                d_cm = distance.euclidean(
                     image_color_moment, input_image_color_moment)
                 d_hog = distance.euclidean(image_hog, input_image_hog)
                 d_avgpool = distance.euclidean(

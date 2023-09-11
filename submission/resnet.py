@@ -1,14 +1,17 @@
+# Functionality: This file has functions which enable extraction of avgpool, fc, layer 3 features from an image
 from torchvision.models import resnet50, ResNet50_Weights
 from torchvision.models.feature_extraction import create_feature_extractor
-from torchvision import transforms
 from PIL import Image
-import cv2, torch, numpy
+import cv2
+import torch
+import numpy
 
 from database_connection import connect_to_mongo
 
 avgpool_output = None
 fc_output = None
 layer3_output = None
+
 
 def process_avgpool(avgpool):
     res = []
@@ -17,6 +20,7 @@ def process_avgpool(avgpool):
         res.append((avgpool[i] + avgpool[i+1])/2)
     return res
 
+
 def process_layer3(layer3):
     res = []
     layer3 = layer3.detach().numpy()[0]
@@ -24,8 +28,6 @@ def process_layer3(layer3):
         res.append(sum(layer3[i].flatten())/(14*14))
     return res
 
-def hook_fn(module, input, output, layer_name):
-    activation_dict[layer_name] = output
 
 def extract_from_resnet(img):
     img = (torch.as_tensor(img)).unsqueeze(0)
@@ -33,6 +35,7 @@ def extract_from_resnet(img):
     model = resnet50(weights=ResNet50_Weights.DEFAULT)
 
     activation = {}
+
     def get_activation(name):
         def hook(model, input, output):
             activation[name] = output.detach()

@@ -1,12 +1,14 @@
-import torch, cv2, math, os, pandas, time, logging, json, numpy
-from PIL import Image, ImageStat
-from torchvision import transforms
+###### Testing Script ######
+# Functionality: Used this as a test script for querying images using FC feature
+import torch
+import cv2
+import numpy
 from scipy.spatial import distance
-from scipy.stats import wasserstein_distance
 import matplotlib.pyplot as plt
 from database_connection import connect_to_mongo
 
-def query_avgpool(image_id):
+
+def query_fc(image_id):
     im_id = str(image_id)
 
     #############################################################
@@ -23,22 +25,24 @@ def query_avgpool(image_id):
     query_image_data = image_collection.find_one({"image_id": im_id})
     # print(query_image_features["image"])
 
-    img = [cv2.resize(i, (300, 100)) for i in numpy.array(query_image_data['image'])]
+    img = [cv2.resize(i, (300, 100))
+           for i in numpy.array(query_image_data['image'])]
 
-    query_image_avgpool = numpy.array(query_image_features['avgpool'])
+    query_image_fc = numpy.array(query_image_features['fc'])
     if len(img) == 3:
         for document in collection.find({}):
             # print(document["image_id"])
-            test = numpy.array(document["avgpool"]).flatten()
+            test = numpy.array(document["fc"]).flatten()
             if len(test) > 0:
-                d = distance.euclidean(test, query_image_avgpool.flatten())
-                if(d in results):
-                    results[d].append([document["image_id"], document["target"]])
+                d = distance.cosine(test, query_image_fc.flatten())*256
+                if (d in results):
+                    results[d].append(
+                        [document["image_id"], document["target"]])
                 else:
                     results[d] = [[document["image_id"], document["target"]]]
-                
+
                 # Print the image ID along with the distance measure value
-                if d < 135: 
+                if d < 135:
                     print(str(document["target"]) + " " + str(d))
             else:
                 print("The image is 1 channel")
@@ -47,21 +51,27 @@ def query_avgpool(image_id):
 
         fig = plt.figure(figsize=(10, 7))
         fig.add_subplot(2, 6, 1)
+        fig.suptitle('FC query top 10 outputs for input image ID ' +
+                     str(image_id), fontsize=16)
 
-        fig.suptitle('Avgpool query top 10 outputs for input image ID ' + str(image_id), fontsize=16)
-
-        plt.imshow((numpy.squeeze(torch.tensor(numpy.array(query_image_data["image"])).permute(1 , 2 , 0))))
+        plt.imshow((numpy.squeeze(torch.tensor(numpy.array(
+            query_image_data["image"])).permute(1, 2, 0))))
         plt.title("Query Image ID: " + str(query_image_data["image_id"]))
         for i in range(1, 11):
-            print(str(results[keys[i]][0][0]) + " " + str(results[keys[i]][0][1]))
-            image = image_collection.find_one({"image_id": results[keys[i]][0][0]})
+            print(str(results[keys[i]][0][0]) +
+                  " " + str(results[keys[i]][0][1]))
+            image = image_collection.find_one(
+                {"image_id": results[keys[i]][0][0]})
             img = torch.tensor(numpy.array(image["image"]))
 
             fig.add_subplot(2, 6, i + 1)
-            plt.imshow((numpy.squeeze(img.permute(1 , 2 , 0))))
+            plt.imshow((numpy.squeeze(img.permute(1, 2, 0))))
             plt.axis('off')
-            plt.title("Result ID: " + str(image["image_id"] + "\nDistance: " + str(round(keys[i], 4))))
-        
+            plt.title(
+                "Result ID: " + str(image["image_id"] + "\nDistance: " + str(round(keys[i], 4))))
+
         plt.show()
     else:
         print("Image does not have 3 channels, please input an image with 3 channels(Red, Green and Blue).")
+
+# query_fc(0)

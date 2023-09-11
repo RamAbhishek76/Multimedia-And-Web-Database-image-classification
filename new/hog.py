@@ -2,8 +2,6 @@ import cv2, numpy, torch
 
 def extract_hog(img):
     numpy_image = (torch.as_tensor(img) * 255).byte().cpu().numpy().transpose((1, 2, 0))
-    # print(type(numpy_image))
-    # print(len(numpy_image))
     gray_img = cv2.cvtColor(numpy_image, cv2.COLOR_BGR2GRAY)
 
     gray_img = cv2.copyMakeBorder(gray_img, 1, 1, 1, 1, cv2.BORDER_CONSTANT)

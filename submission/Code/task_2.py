@@ -1,7 +1,10 @@
 # Solution for task 2
 
 from PIL import Image
-import torchvision, torch, cv2, numpy
+import torchvision
+import torch
+import cv2
+import numpy
 from torchvision import datasets, models
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
@@ -17,12 +20,14 @@ dbnme = mongo_client.cse515_project_phase1
 collection = dbnme.features
 
 transforms = transforms.Compose([
-            transforms.ToTensor(),
+    transforms.ToTensor(),
 ])
 
 # Loading the dataset
-dataset = torchvision.datasets.Caltech101('D:\ASU\Fall Semester 2023 - 24\CSE515 - Multimedia and Web Databases', transform=transforms, download=True)
-data_loader = torch.utils.data.DataLoader(dataset, batch_size=4, shuffle=True, num_workers=8)
+dataset = torchvision.datasets.Caltech101(
+    'D:\ASU\Fall Semester 2023 - 24\CSE515 - Multimedia and Web Databases', transform=transforms, download=True)
+data_loader = torch.utils.data.DataLoader(
+    dataset, batch_size=4, shuffle=True, num_workers=8)
 
 # iterating through all the images in the dataset
 for image_ID in range(8677):

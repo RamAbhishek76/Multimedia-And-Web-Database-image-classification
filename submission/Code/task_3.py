@@ -102,6 +102,7 @@ while choice != 0:
 
             for image in collection.find():
                 print(image["image_id"])
+                print(image["target"])
                 image_color_moment = numpy.array(
                     image["color_moment"]).flatten()
                 image_hog = numpy.array(image["hog"]).flatten()

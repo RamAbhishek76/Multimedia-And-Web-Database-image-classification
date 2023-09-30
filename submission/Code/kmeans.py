@@ -14,7 +14,7 @@ client = connect_to_mongo()
 db = client.cse515_project_phase1
 avg_coll = db.avg_images
 features_coll = db.features
-rep_images = db.rep_images
+rep_images = db.representative_images
 
 num_clusters = 10  # Number of clusters (you can adjust this)
 
@@ -38,58 +38,68 @@ for image_ID in range(8677):
     img, _label = dataset[image_ID]
     resized_img = np.array([cv2.resize(i, (300, 100))
                             for i in img.numpy()])
-    if (len(resized_img) != 3):
-        continue
-    if label == _label:
-        resized_img = np.array([cv2.resize(i, (300, 100))
-                               for i in img.numpy()])
-        images.append(resized_img.flatten())
-        image_ids.append(image_ID)
-    else:
-        kmeans = KMeans(n_clusters=num_clusters,
-                        random_state=42).fit(images)
-        cluster_centers = kmeans.cluster_centers_
+    if (len(resized_img) == 3):
+        if label == _label:
+            resized_img = np.array([cv2.resize(i, (300, 100))
+                                    for i in img.numpy()])
+            images.append(resized_img.flatten())
+            image_ids.append(image_ID)
+        else:
+            if len(images):
+                kmeans = KMeans(n_clusters=num_clusters,
+                                random_state=42).fit(images)
+                cluster_centers = kmeans.cluster_centers_
 
-        # Calculate distances of each image to the cluster centroids
-        distances = cdist(images, cluster_centers, 'euclidean')
-        closest_cluster_index = np.argmin(distances, axis=1)
+                # Calculate distances of each image to the cluster centroids
+                distances = cdist(images, cluster_centers, 'euclidean')
+                closest_cluster_index = np.argmin(distances, axis=1)
 
-        # Select an image closest to each cluster centroid
-        representative_images[label] = [image_ids[i]
-                                        for i in np.argmin(distances, axis=0)]
-        print(label)
-        label += 1
-        images = []
-        image_ids = []
-        print(representative_images)
-# Loop through each class
-for label in range(101):
-    images = features_coll.find({"target": label})
-    images_data = np.array([(img["image"]).flatten() for img in images])
+                # Select an image closest to each cluster centroid
+                representative_images[label] = [image_ids[i]
+                                                for i in np.argmin(distances, axis=0)]
+                rep_images.insert_one(
+                    {"target": label, "image_id": str(image_ids[np.argmin(distances, axis=0)[0]])})
+            else:
+                representative_images[label] = []
+                rep_images.insert_one(
+                    {"target": label, "image_id": ""})
+            print(label)
+            label += 1
+            images = []
+            image_ids = []
+            print(representative_images)
 
-    # Apply K-means clustering
-    kmeans = KMeans(n_clusters=num_clusters, random_state=42).fit(images_data)
-    cluster_centers = kmeans.cluster_centers_
+for image_ID in range(8677):
+    img, _label = dataset[image_ID]
+    resized_img = np.array([cv2.resize(i, (300, 100))
+                            for i in img.numpy()])
+    if (len(resized_img) == 3):
+        if label == _label:
+            resized_img = np.array([cv2.resize(i, (300, 100))
+                                    for i in img.numpy()])
+            images.append(resized_img.flatten())
+            image_ids.append(image_ID)
+        else:
+            if len(images):
+                kmeans = KMeans(n_clusters=num_clusters,
+                                random_state=42).fit(images)
+                cluster_centers = kmeans.cluster_centers_
 
-    # Calculate distances of each image to the cluster centroids
-    distances = cdist(images_data, cluster_centers, 'euclidean')
-    closest_cluster_index = np.argmin(distances, axis=1)
+                # Calculate distances of each image to the cluster centroids
+                distances = cdist(images, cluster_centers, 'euclidean')
+                closest_cluster_index = np.argmin(distances, axis=1)
 
-    # Select an image closest to each cluster centroid
-    representative_images[label] = [images[i]
-                                    for i in np.argmin(distances, axis=0)]
-
-# Display the representative images
-plt.figure(figsize=(12, 12))
-plt.suptitle('Representative Images for Each Class')
-
-for i, (class_name, images) in enumerate(representative_images.items()):
-    for j, img in enumerate(images):
-        plt.subplot(len(representative_images),
-                    num_clusters, i * num_clusters + j + 1)
-        plt.imshow(img)
-        plt.title(f'Class: {class_name}\nCluster: {j+1}')
-        plt.axis('off')
-
-plt.tight_layout()
-plt.show()
+                # Select an image closest to each cluster centroid
+                representative_images[label] = [image_ids[i]
+                                                for i in np.argmin(distances, axis=0)]
+                rep_images.insert_one(
+                    {"target": label, "image_id": str(image_ids[np.argmin(distances, axis=0)[0]])})
+            else:
+                representative_images[label] = []
+                rep_images.insert_one(
+                    {"target": label, "image_id": ""})
+            print(label)
+            label += 1
+            images = []
+            image_ids = []
+            print(representative_images)

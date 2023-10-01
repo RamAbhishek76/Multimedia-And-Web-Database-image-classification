@@ -75,7 +75,7 @@ for image in features_collection.find({"image_id": {"$in": iids}}):
         image_feature = np.array(
             image[feature_names[feature - 1]]).flatten()
 
-        d_cm = distance.braycurtis(
+        d_cm = distance.euclidean(
             image_feature, np.array(query_image_feature).flatten())
 
         feature_ranks[d_cm] = image["target"]
@@ -84,6 +84,3 @@ cm_keys = sorted(feature_ranks.keys())
 
 for i in range(k):
     print(feature_ranks[cm_keys[i]], cm_keys[i])
-
-# task_2_output_plotter(feature_names[feature - 1].capitalize(), query_image_id,
-#                       feature_ranks, cm_keys, k)

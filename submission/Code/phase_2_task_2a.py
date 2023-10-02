@@ -75,9 +75,25 @@ for image in features_collection.find({"image_id": {"$in": iids}}):
         image_feature = np.array(
             image[feature_names[feature - 1]]).flatten()
 
-        d_cm = distance.euclidean(
-            image_feature, np.array(query_image_feature).flatten())
-
+        dcm = 9999
+        match feature:
+            case 1:
+                d_cm = distance.chebyshev(
+                    image_feature, np.array(query_image_feature).flatten())
+            case 2:
+                d_cm = distance.cosine(
+                    image_feature, np.array(query_image_feature).flatten())
+                print(image["image_id"], d_cm)
+            case 3:
+                d_cm = distance.cosine(
+                    image_feature, np.array(query_image_feature).flatten())
+            case 4:
+                # cosine is giving acceptable results (the expected result is withing top 5)
+                d_cm = distance.cosine(
+                    image_feature, np.array(query_image_feature).flatten())
+            case 5:
+                d_cm = distance.cosine(
+                    image_feature, np.array(query_image_feature).flatten())
         feature_ranks[d_cm] = image["target"]
 
 cm_keys = sorted(feature_ranks.keys())

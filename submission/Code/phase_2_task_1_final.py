@@ -10,7 +10,7 @@ from database_connection import connect_to_mongo
 client = connect_to_mongo()
 db = client.cse515_project_phase1
 collection = db.features
-rep_collection = db.rep_images
+rep_collection = db.representative_images
 
 query_label = int(input("Enter the query label: "))
 print("select one of the features: ")
@@ -21,10 +21,10 @@ k = int(input("Enter k value: "))
 feature_names = ['color_moment',
                  'hog', 'layer3', 'avgpool', 'fc']
 
-# input_image = rep_collection.find_one({"target": query_label})
-# print(input_image["rep_image_id"])
-input_image = collection.find_one({"target": query_label})
-print(input_image)
+input_image = rep_collection.find_one({"target": query_label})
+print(input_image["image_id"])
+input_image = collection.find_one({"image_id": input_image["image_id"]})
+# print(input_image)
 input_image_feature = input_image[feature_names[feature - 1]]
 
 feature_ranks = {}

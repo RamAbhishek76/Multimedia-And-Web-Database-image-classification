@@ -14,10 +14,12 @@ from hog import extract_hog
 from resnet import extract_from_resnet
 from output_plotter import task_2_output_plotter
 
+np.set_printoptions(suppress=True)
+
 client = connect_to_mongo()
 db = client.cse515_project_phase1
 features_collection = db.features
-rep_collection = db.representative_images
+rep_collection = db.new_representative_images
 
 transforms = transforms.Compose([
     transforms.ToTensor(),
@@ -78,7 +80,7 @@ for image in features_collection.find({"image_id": {"$in": iids}}):
         dcm = 9999
         match feature:
             case 1:
-                d_cm = distance.chebyshev(
+                d_cm = distance.euclidean(
                     image_feature, np.array(query_image_feature).flatten())
             case 2:
                 d_cm = distance.cosine(

@@ -45,7 +45,8 @@ match dim_red_method:
     case 3:
         print("LDA")
         feature_space = feature_space + abs(np.min(feature_space)) + 1
-        lda = LatentDirichletAllocation(n_components=k, random_state=42)
+        lda = LatentDirichletAllocation(
+            n_components=k, random_state=42, max_iter=6)
         print(feature_space)
         lda.fit(feature_space)
 

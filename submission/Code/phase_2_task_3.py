@@ -1,9 +1,6 @@
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import LatentDirichletAllocation
-from sklearn.decomposition import NMF
-from sklearn.cluster import KMeans
-
 from database_connection import connect_to_mongo
 
 
@@ -29,6 +26,48 @@ def svd(matrix):
 
     return u, singular_values, v
 
+def k_means(feature_space, k):
+    centroids = feature_space[np.random.choice(
+        feature_space.shape[0], k, replace=False)]
+
+    prev_centroids = centroids.copy()
+    for _ in range(100):  # Assuming a max of 100 iterations for convergence
+        # Assign each data point to the nearest centroid
+        distances = np.linalg.norm(
+            feature_space[:, np.newaxis] - centroids, axis=2)
+        labels = np.argmin(distances, axis=1)
+
+        # Recalculate centroids
+        new_centroids = np.array(
+            [feature_space[labels == i].mean(axis=0) for i in range(k)])
+
+        # Check for convergence
+        if np.all(np.abs(new_centroids - prev_centroids) < 1e-4):
+            break
+
+        prev_centroids = new_centroids.copy()
+
+    return new_centroids
+
+def nnmf(feature_space, k):
+
+    W = np.abs(np.random.randn(feature_space.shape[0], k))
+    H = np.abs(np.random.randn(k, feature_space.shape[1]))
+
+    prev_error = float('inf')
+    for _ in range(100):  # Assuming a max of 100 iterations for convergence
+        # Update W and H using multiplicative update rules
+        WH = np.dot(W, H)
+        W *= (feature_space @ H.T) / (WH @ H.T + 1e-10)  # Adding a small value to avoid division by zero
+        H *= (W.T @ feature_space) / (W.T @ WH + 1e-10)
+
+        # Check for convergence
+        error = np.linalg.norm(feature_space - np.dot(W, H))
+        if abs(prev_error - error) < 1e-4:
+            break
+        prev_error = error
+
+    return W
 
 client = connect_to_mongo()
 db = client.cse515_project_phase1
@@ -80,11 +119,16 @@ match dim_red_method:
 
     case 2:
         print("NNMF")
-        nmf = NMF(n_components=k, init='random', random_state=42)
-        W = nmf.fit_transform(feature_space)
-        H = nmf.components_
+
+        W = nnmf(feature_space, k)
 
         print(W)
+        file_name = "nnmf_" + str(k) + "_basis_" + \
+            feature_names[feature - 1] + ".csv"
+        np.savetxt(file_name, W, delimiter=',', fmt='%f')
+        df = pd.read_csv(file_name)
+        header = [i for i in range(len(df))]
+        df.to_csv(file_name, index=True)
 
     case 3:
         print("LDA")
@@ -109,9 +153,16 @@ match dim_red_method:
         df = pd.read_csv(file_name)
         header = [i for i in range(len(df))]
         df.to_csv(file_name, index=True)
+
     case 4:
         print("KMeans")
-        kmeans = KMeans(n_clusters=k, random_state=42)
-        kmeans.fit(feature_space)
 
-        print(kmeans.cluster_centers_)
+        new_centroids = k_means(feature_space, k)
+
+        print(new_centroids)
+        file_name = "kmeans_" + str(k) + "_centroids_" + \
+            feature_names[feature - 1] + ".csv"
+        np.savetxt(file_name, new_centroids, delimiter=',', fmt='%f')
+        df = pd.read_csv(file_name)
+        header = [i for i in range(len(df))]
+        df.to_csv(file_name, index=True)

@@ -25,8 +25,8 @@ k = int(input("Enter k value: "))
 feature_names = ['color_moment',
                  'hog', 'layer3', 'avgpool', 'fc']
 
-for i in range(8677):
-    for j in range(i, 8677):
+for i in range(0, 8677, 2):
+    for j in range(i, 8677, 2):
         print(i, j)
         image_features = []
         match feature:

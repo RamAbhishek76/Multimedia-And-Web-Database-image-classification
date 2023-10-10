@@ -5,7 +5,7 @@ from database_connection import connect_to_mongo
 
 client = connect_to_mongo()
 db = client.cse515_project_phase1
-collection = db.features
+collection = db.phase2_features
 
 print("select one of the features: ")
 print("1. Color Moment\n2.HoG\n3. Layer3\n4. AvgPool\n5. FC")

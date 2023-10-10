@@ -13,7 +13,7 @@ from resnet import extract_from_resnet
 
 client = connect_to_mongo()
 db = client.cse515_project_phase1
-collection = db.features
+collection = db.phase2_features
 transforms = transforms.Compose([
     transforms.ToTensor(),
 ])

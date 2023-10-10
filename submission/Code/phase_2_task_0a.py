@@ -17,7 +17,7 @@ from resnet import extract_from_resnet
 # Connect to the mongo database
 mongo_client = connect_to_mongo()
 dbnme = mongo_client.cse515_project_phase1
-collection = dbnme.features
+collection = dbnme.phase2_features
 
 transforms = transforms.Compose([
     transforms.ToTensor(),
@@ -31,7 +31,6 @@ data_loader = torch.utils.data.DataLoader(
 
 # iterating through all the images in the dataset
 for image_ID in range(8677):
-    # checking if the image ID is even or not. And adding the features of the image to the DB if the ID is even number
     if image_ID % 2 == 0:
         img, label = dataset[image_ID]
 
@@ -47,7 +46,6 @@ for image_ID in range(8677):
             resnet_features = extract_from_resnet(resized_resnet_img)
             collection.insert_one({
                 "image_id": str(image_ID),
-                "image": img.numpy().tolist(),
                 "target": label,
                 "color_moment": color_moment,
                 "hog": hog,

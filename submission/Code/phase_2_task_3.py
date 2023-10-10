@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import LatentDirichletAllocation
+from sklearn.decomposition import NMF
+from sklearn.cluster import KMeans
 
 from database_connection import connect_to_mongo
 
@@ -30,6 +32,7 @@ feature_space = np.array(feature_space)
 
 match dim_red_method:
     case 1:
+        print("SVD")
         U, S, VT = np.linalg.svd(feature_space)
 
         U_k = U[:, :k]
@@ -50,8 +53,12 @@ match dim_red_method:
         df.to_csv(file_name, index=True)
 
     case 2:
-        # TODO: Implement NNMF
         print("NNMF")
+        nmf = NMF(n_components=k, init='random', random_state=42)
+        W = nmf.fit_transform(feature_space)
+        H = nmf.components_
+        
+        print(W)
 
     case 3:
         print("LDA")
@@ -77,5 +84,8 @@ match dim_red_method:
         header = [i for i in range(len(df))]
         df.to_csv(file_name, index=True)
     case 4:
-        # TODO: Implement K Means
         print("KMeans")
+        kmeans = KMeans(n_clusters=k, random_state=42)
+        kmeans.fit(feature_space)
+        
+        print(kmeans.cluster_centers_)

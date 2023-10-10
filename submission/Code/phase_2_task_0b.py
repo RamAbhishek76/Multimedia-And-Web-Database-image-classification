@@ -35,7 +35,7 @@ while choice != 0:
     match choice:
         case 1:
             image_id = str(
-                input("Enter image ID for which the features have to generated: "))
+                input("Enter image ID for which the features have to be generated: "))
             print("Generating image features for image_id: " + str(image_id))
 
             image_details = collection.find_one({"image_id": image_id})

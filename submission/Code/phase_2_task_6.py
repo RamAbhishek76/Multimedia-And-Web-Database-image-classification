@@ -6,8 +6,8 @@ from database_connection import connect_to_mongo
 client = connect_to_mongo()
 db = client.cse515_project_phase1
 avg_coll = db.avg_images
-features_coll = db.features
-rep_images = db.new_representative_images
+features_coll = db.phase2_features
+rep_images = db.phase2_representative_images
 
 sim_matrix = np.zeros(shape=(8677, 8677))
 
@@ -28,8 +28,33 @@ feature_names = ['color_moment',
 for i in range(8677):
     for j in range(i, 8677):
         print(i, j)
-        image_features = list(features_coll.find(
-            {"image_id": {"$in": [str(i), str(j)]}}))
+        image_features = []
+        match feature:
+            case 1:
+                image_features = list(features_coll.find(
+                    {"image_id": {"$in": [str(i), str(j)]}}, {
+                        "color_moment": 1
+                    }))
+            case 2:
+                image_features = list(features_coll.find(
+                    {"image_id": {"$in": [str(i), str(j)]}}, {
+                        "hog": 1
+                    }))
+            case 3:
+                image_features = list(features_coll.find(
+                    {"image_id": {"$in": [str(i), str(j)]}}, {
+                        "layer3": 1
+                    }))
+            case 4:
+                image_features = list(features_coll.find(
+                    {"image_id": {"$in": [str(i), str(j)]}}, {
+                        "avgpool": 1
+                    }))
+            case 5:
+                image_features = list(features_coll.find(
+                    {"image_id": {"$in": [str(i), str(j)]}}, {
+                        "fc": 1
+                    }))
         if len(image_features) >= 2:
             sim = distance.euclidean(
                 np.array(image_features[0][

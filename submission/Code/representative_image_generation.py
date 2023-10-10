@@ -24,8 +24,8 @@ def gen_empty_feat_dict():
 client = connect_to_mongo()
 db = client.cse515_project_phase1
 avg_coll = db.avg_images
-features_coll = db.features
-rep_images = db.final_representative_images
+features_coll = db.phase2_features
+rep_images = db.phase2_representative_images
 
 
 def cluster_by_feature(feature_name):

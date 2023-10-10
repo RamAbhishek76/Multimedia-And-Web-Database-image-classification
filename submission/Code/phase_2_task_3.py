@@ -7,48 +7,27 @@ from sklearn.cluster import KMeans
 from database_connection import connect_to_mongo
 
 
-def power_iteration(matrix, num_iterations=1000):
+def svd(matrix):
     """
-    Perform power iteration to find the dominant singular vector of a matrix.
+    Compute the Singular Value Decomposition (SVD) of a matrix.
     """
-    # Initialize a random vector (initial guess for the dominant singular vector)
-    vector = np.random.rand(matrix.shape[1])
-
-    for _ in range(num_iterations):
-        # Compute the product of the matrix and the vector
-        product = matrix @ vector
-
-        # Compute the norm of the product
-        norm = np.linalg.norm(product)
-
-        # Update the vector to be the normalized product
-        vector = product / norm
-
-    return vector, norm
-
-
-def svd(matrix, num_iterations=1000):
-    """
-    Compute the Singular Value Decomposition (SVD) of a matrix using power iteration.
-    """
-    # Compute A^T * A
+    # Compute A^T * A and A * A^T
     ata = matrix.T @ matrix
+    aat = matrix @ matrix.T
 
-    # Find the dominant eigenvector of A^T * A (right singular vector)
-    v, sigma = power_iteration(ata, num_iterations)
+    # Compute the eigenvectors and eigenvalues of A^T * A
+    _, s, vh = np.linalg.svd(ata)
 
-    # Compute the singular value
-    singular_value = np.sqrt(sigma)
+    # Compute the singular values
+    singular_values = np.sqrt(s)
 
-    # Find the corresponding left singular vector
-    u = matrix @ v / singular_value
+    # Compute the right singular vectors (V)
+    v = vh.T
 
-    # Stack the left singular vector, singular value, and right singular vector
-    u = u.reshape(-1, 1)
-    singular_value = np.array([singular_value])
-    v = v.reshape(-1, 1)
+    # Compute the left singular vectors (U)
+    u = matrix @ v / singular_values
 
-    return u, singular_value, v.T
+    return u, singular_values, v
 
 
 client = connect_to_mongo()
@@ -80,6 +59,7 @@ match dim_red_method:
         print("SVD")
         # U, S, VT = np.linalg.svd(feature_space)
         U, S, VT = svd(feature_space)
+        print(U)
 
         U_k = U[:, :k]
         S_k = np.diag(S[:k])
@@ -90,13 +70,13 @@ match dim_red_method:
 
         print(latent_semantics)
 
-        file_name = "svd_" + str(k) + "_latent_semantics_" + \
-            feature_names[feature - 1] + ".csv"
-        np.savetxt(file_name,
-                   latent_semantics, delimiter=',', fmt='%f')
-        df = pd.read_csv(file_name)
-        header = [i for i in range(len(df))]
-        df.to_csv(file_name, index=True)
+        # file_name = "svd_" + str(k) + "_latent_semantics_" + \
+        #     feature_names[feature - 1] + ".csv"
+        # np.savetxt(file_name,
+        #            latent_semantics, delimiter=',', fmt='%f')
+        # df = pd.read_csv(file_name)
+        # header = [i for i in range(len(df))]
+        # df.to_csv(file_name, index=True)
 
     case 2:
         print("NNMF")

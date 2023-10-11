@@ -5,6 +5,7 @@ from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import csv
 import numpy as np
+from uri import uri
 
 def save_to_file(semantics, filename):
     with open(filename, 'w', newline='') as csvfile:
@@ -15,7 +16,7 @@ def save_to_file(semantics, filename):
             csv_writer.writerow([])  # Empty row to separate different semantics
 
 def connect_to_mongo():
-    uri = "mongodb://localhost:27017/CSE515ProjectDB"
+    uri = uri
     client = MongoClient(uri, server_api=ServerApi('1'))
     try:
         client.admin.command('ping')
@@ -51,7 +52,7 @@ def extract_latent_semantics(tensor_data, k, label_names):
     return top_k_semantics
 
 client = connect_to_mongo()
-db = client.CSE515ProjectDB
+db = client.cse515
 collection = db.Phase2
 
 tl.set_backend('pytorch')

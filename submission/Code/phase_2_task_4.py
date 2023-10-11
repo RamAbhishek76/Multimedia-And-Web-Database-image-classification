@@ -12,7 +12,7 @@ transform = transforms.Compose([
     transforms.ToTensor(),
 ])
 dataset = datasets.ImageFolder(
-    root='path_to_Caltech101_dataset', transform=transform)
+    root='D:\ASU\Fall Semester 2023 - 24\CSE515 - Multimedia and Web Databases', transform=transform)
 dataloader = torch.utils.data.DataLoader(
     dataset, batch_size=len(dataset), shuffle=False)
 

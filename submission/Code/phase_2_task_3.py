@@ -26,6 +26,7 @@ def svd(matrix):
 
     return u, singular_values, v
 
+
 def k_means(feature_space, k):
     centroids = feature_space[np.random.choice(
         feature_space.shape[0], k, replace=False)]
@@ -49,6 +50,7 @@ def k_means(feature_space, k):
 
     return new_centroids
 
+
 def nnmf(feature_space, k):
 
     W = np.abs(np.random.randn(feature_space.shape[0], k))
@@ -58,7 +60,8 @@ def nnmf(feature_space, k):
     for _ in range(100):  # Assuming a max of 100 iterations for convergence
         # Update W and H using multiplicative update rules
         WH = np.dot(W, H)
-        W *= (feature_space @ H.T) / (WH @ H.T + 1e-10)  # Adding a small value to avoid division by zero
+        # Adding a small value to avoid division by zero
+        W *= (feature_space @ H.T) / (WH @ H.T + 1e-10)
         H *= (W.T @ feature_space) / (W.T @ WH + 1e-10)
 
         # Check for convergence
@@ -68,6 +71,7 @@ def nnmf(feature_space, k):
         prev_error = error
 
     return W
+
 
 client = connect_to_mongo()
 db = client.cse515_project_phase1
@@ -122,10 +126,15 @@ match dim_red_method:
 
         W = nnmf(feature_space, k)
 
-        print(W)
-        file_name = "nnmf_" + str(k) + "_basis_" + \
+        latent_semantics = np.append([[i for i in range(len(W[0]))]],
+                                     W, axis=0)
+
+        print(latent_semantics)
+
+        file_name = "nnmf_" + str(k) + "_latent_semantics_" + \
             feature_names[feature - 1] + ".csv"
-        np.savetxt(file_name, W, delimiter=',', fmt='%f')
+        np.savetxt(file_name,
+                   latent_semantics, delimiter=',', fmt='%f')
         df = pd.read_csv(file_name)
         header = [i for i in range(len(df))]
         df.to_csv(file_name, index=True)
@@ -159,10 +168,15 @@ match dim_red_method:
 
         new_centroids = k_means(feature_space, k)
 
-        print(new_centroids)
-        file_name = "kmeans_" + str(k) + "_centroids_" + \
+        latent_semantics = np.append([[i for i in range(len(new_centroids[0]))]],
+                                     new_centroids, axis=0)
+
+        print(latent_semantics)
+
+        file_name = "nnmf_" + str(k) + "_latent_semantics_" + \
             feature_names[feature - 1] + ".csv"
-        np.savetxt(file_name, new_centroids, delimiter=',', fmt='%f')
+        np.savetxt(file_name,
+                   latent_semantics, delimiter=',', fmt='%f')
         df = pd.read_csv(file_name)
         header = [i for i in range(len(df))]
         df.to_csv(file_name, index=True)

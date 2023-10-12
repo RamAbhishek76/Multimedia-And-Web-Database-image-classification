@@ -11,6 +11,7 @@ from color_moment import extract_color_moment
 from hog import extract_hog
 from output_plotter import output_plotter
 from resnet import extract_from_resnet
+from database_connection import connect_to_mongo
 
 query_image = str(input("Enter the query image ID:"))
 print("1. SVD.\n2. NNMF.\n3.LDA.\n4.K Means\n", end="")
@@ -22,6 +23,9 @@ feature_names = ["color_moment", "hog", "layer3", "avgpool", "fc"]
 print("1. Color Moment\n2. HoG.\n3. Layer 3.\n4. AvgPool.\n5. FC.")
 feature = int(input("Select one of the feature space from above:"))
 
+client = connect_to_mongo()
+db = client.cse515_project_phase1
+collection = db.phase2_ls1
 
 # Get features of query image
 transforms = transforms.Compose([
@@ -55,48 +59,53 @@ if len(resized_img) == 3:
     }
 
 distances = {}
+query_image_feature = np.array(
+    query_image_features[feature_names[feature - 1]]).flatten()
+# calculating cov matrix for the input image feature
+cov_matrix = np.outer(query_image_feature, query_image_feature)
+
+# Calculating eigen vectors and eigen values
+eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
+
+# Selecting the top ls_k eigen vectors
+sorted_indices = np.argsort(eigenvalues)[::-1]
+top_eigenvectors = eigenvectors[:, sorted_indices[:int(ls_k)]]
+
+# project the higher dimensional feature into the latent space
+query_image_feature_projected = np.dot(
+    top_eigenvectors.T, query_image_feature)
 
 match ls:
     case 1:
-        path = "D:/ASU/Fall Semester 2023 - 24/CSE515 - Multimedia and Web Databases/phase 1/submission/Code/task3_output/svd/svd_" + \
-            ls_k+"_latent_semantics_" + feature_names[feature - 1] + ".csv"
-        ls_df = pd.read_csv(path)
-        latent_features = []
-        for index, row in ls_df.iterrows():
-            latent_features.append([row[i] for i in range(1, len(row))])
-
-        query_image_feature = query_image_features[feature_names[feature - 1]]
-        # calculating cov matrix for the input image feature
-        cov_matrix = np.outer(query_image_feature, query_image_feature)
-
-        # Calculating eigen vectors and eigen values
-        eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
-
-        # Selecting the top ls_k eigen vectors
-        sorted_indices = np.argsort(eigenvalues)[::-1]
-        top_eigenvectors = eigenvectors[:, sorted_indices[:int(ls_k)]]
-
-        # project the higher dimensional feature into the latent space
-        query_image_feature_projected = np.dot(
-            top_eigenvectors.T, query_image_feature)
-
-        print(query_image_feature_projected)
-        for i in range(len(latent_features)):
+        for image_ls in collection.find({"ls_k": int(ls_k), "dim_red_method": "svd", "feature_space": feature_names[feature - 1]}):
+            print(image_ls['image_id'], image_ls["feature_space"])
             d = distance.euclidean(
-                query_image_feature_projected.flatten(), latent_features[i])
-            distances[d] = i
+                query_image_feature_projected.flatten(), image_ls["latent_semantic"])
+            distances[d] = image_ls["image_id"]
 
         dist_keys = sorted(distances.keys())
         for i in range(k_val):
             print(distances[dist_keys[i]], dist_keys[i])
 
     case 2:
-        print("NNMF")
+        for image_ls in collection.find({"ls_k": int(ls_k), "dim_red_method": "nnmf", "feature_space": feature_names[feature - 1]}):
+            print(image_ls['image_id'], image_ls["feature_space"])
+            d = distance.euclidean(
+                query_image_feature_projected.flatten(), image_ls["latent_semantic"])
+            distances[d] = image_ls["image_id"]
+
+        dist_keys = sorted(distances.keys())
+        for i in range(k_val):
+            print(distances[dist_keys[i]], dist_keys[i])
     case 3:
-        path = "D:/ASU/Fall Semester 2023 - 24/CSE515 - Multimedia and Web Databases/phase 1/submission/Code/task3_output/lda/lda_" + \
-            ls_k+"_latent_semantics_" + feature_names[feature - 1] + ".csv"
-        ls_df = pd.read_csv(path)
-        for index, row in ls_df.iterrows():
-            print(row[0], row[1:ls_k])
+        for image_ls in collection.find({"ls_k": int(ls_k), "dim_red_method": "lda", "feature_space": feature_names[feature - 1]}):
+            print(image_ls['image_id'], image_ls["feature_space"])
+            d = distance.euclidean(
+                query_image_feature_projected.flatten(), image_ls["latent_semantic"])
+            distances[d] = image_ls["image_id"]
+
+        dist_keys = sorted(distances.keys())
+        for i in range(k_val):
+            print(distances[dist_keys[i]], dist_keys[i])
     case 4:
         print("kmeans")

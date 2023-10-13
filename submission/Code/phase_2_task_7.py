@@ -1,5 +1,7 @@
+import time
 import numpy as np
 import cv2
+from sklearn.cluster import KMeans
 import torch
 import pandas as pd
 import torchvision
@@ -9,7 +11,7 @@ from sklearn.decomposition import PCA
 
 from color_moment import extract_color_moment
 from hog import extract_hog
-from output_plotter import output_plotter
+from output_plotter import output_plotter, task_7_output_plotter
 from resnet import extract_from_resnet
 from database_connection import connect_to_mongo
 
@@ -59,39 +61,46 @@ if len(resized_img) == 3:
     }
 
 distances = {}
+latent_space = []
+
 query_image_feature = np.array(
     query_image_features[feature_names[feature - 1]]).flatten()
-# calculating cov matrix for the input image feature
-cov_matrix = np.outer(query_image_feature, query_image_feature)
 
-# Calculating eigen vectors and eigen values
-eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
+for image_ls in collection.find({"ls_k": int(ls_k), "dim_red_method": "svd", "feature_space": feature_names[feature - 1]}):
+    latent_space.append(image_ls["latent_semantic"])
 
-# Selecting the top ls_k eigen vectors
-sorted_indices = np.argsort(eigenvalues)[::-1]
-top_eigenvectors = eigenvectors[:, sorted_indices[:int(ls_k)]]
+kmeans = KMeans(n_clusters=len(query_image_feature), random_state=42)
+kmeans.fit(latent_space)
 
-# project the higher dimensional feature into the latent space
-query_image_feature_projected = np.dot(
-    top_eigenvectors.T, query_image_feature)
+# Get the cluster centroids (representative datapoints)
+representative_datapoints = kmeans.cluster_centers_
+
+q, _ = np.linalg.qr(representative_datapoints)
+
+query_image_feature = query_image_feature @ q
+print(len(representative_datapoints), len(representative_datapoints[0]))
+print(len(query_image_feature))
 
 match ls:
     case 1:
         for image_ls in collection.find({"ls_k": int(ls_k), "dim_red_method": "svd", "feature_space": feature_names[feature - 1]}):
             print(image_ls['image_id'], image_ls["feature_space"])
-            d = distance.euclidean(
-                query_image_feature_projected.flatten(), image_ls["latent_semantic"])
+            d = distance.euclidean(query_image_feature,
+                                   image_ls["latent_semantic"])
+            print(d, image_ls["image_id"])
             distances[d] = image_ls["image_id"]
 
         dist_keys = sorted(distances.keys())
         for i in range(k_val):
             print(distances[dist_keys[i]], dist_keys[i])
 
+        task_7_output_plotter(distances, dist_keys, k_val, query_image)
+
     case 2:
         for image_ls in collection.find({"ls_k": int(ls_k), "dim_red_method": "nnmf", "feature_space": feature_names[feature - 1]}):
             print(image_ls['image_id'], image_ls["feature_space"])
-            d = distance.euclidean(
-                query_image_feature_projected.flatten(), image_ls["latent_semantic"])
+            d = distance.euclidean(query_image_feature,
+                                   image_ls["latent_semantic"])
             distances[d] = image_ls["image_id"]
 
         dist_keys = sorted(distances.keys())
@@ -109,3 +118,29 @@ match ls:
             print(distances[dist_keys[i]], dist_keys[i])
     case 4:
         print("kmeans")
+# # 2500 SVD 5 FC
+# 5620 -0.2357577031362172
+# 162 -0.23281372700156674
+# 6324 -0.23068503333615964
+# 2406 -0.22739705039986402
+# 1934 -0.22016289296928884
+# 2394 -0.21772789168480275
+# 304 -0.21745405717485458
+# 6692 -0.21492260376984038
+# 168 -0.21470482419603815
+# 7748 -0.2122780947780069
+
+# 2500 SVD 5 avgpool
+# -0.04104717032592793 8676
+# 5140 -0.0716916360071762
+# 4332 -0.07044448744170113
+# 278 -0.0701203923896495
+# 6324 -0.06943056684936791
+# 5894 -0.06808300245529249
+# 304 -0.06748708674782791
+# 7384 -0.06736137247778004
+# 1566 -0.06506562713866827
+# 216 -0.06458362636235976
+# 6 -0.06370370207640293
+
+# 0 CM 5 SVD

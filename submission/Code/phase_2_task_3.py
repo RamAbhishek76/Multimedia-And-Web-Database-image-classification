@@ -4,27 +4,21 @@ from sklearn.decomposition import LatentDirichletAllocation
 from database_connection import connect_to_mongo
 
 
-def svd(matrix):
-    """
-    Compute the Singular Value Decomposition (SVD) of a matrix.
-    """
-    # Compute A^T * A and A * A^T
-    ata = matrix.T @ matrix
-    aat = matrix @ matrix.T
+def svd(A):
+    eigenvalues, V = np.linalg.eig(np.dot(A.T, A))
+    eigenvalues = np.real(eigenvalues)
+    V = np.real(V)
 
-    # Compute the eigenvectors and eigenvalues of A^T * A
-    _, s, vh = np.linalg.svd(ata)
+    # Step 2: Compute singular values from eigenvalues
+    singular_values = np.sqrt(eigenvalues)
 
-    # Compute the singular values
-    singular_values = np.sqrt(s)
+    # Step 3: Compute right singular vectors (V)
+    V = V.T
 
-    # Compute the right singular vectors (V)
-    v = vh.T
+    # Step 4: Compute left singular vectors (U)
+    U = np.dot(A, V) / singular_values
 
-    # Compute the left singular vectors (U)
-    u = matrix @ v / singular_values
-
-    return u, singular_values, v
+    return U, singular_values, V
 
 
 def k_means(feature_space, k):
@@ -76,6 +70,7 @@ def nnmf(feature_space, k):
 client = connect_to_mongo()
 db = client.cse515_project_phase1
 collection = db.phase2_features
+ls_collection = db.phase2_ls1
 
 print("select one of the features: ")
 print("1. Color Moment\n2.HoG\n3. Layer3\n4. AvgPool\n5. FC")
@@ -90,9 +85,11 @@ feature_names = ['color_moment',
 dim_red_names = ["svd", "nnmf", "lda", "kmeans"]
 
 feature_space = []
+feature_ids = []
 user_feature = feature_names[feature - 1]
 for img in collection.find():
     print(img['image_id'])
+    feature_ids.append(img["image_id"])
     feature_space.append(np.array(img[user_feature]).flatten())
 
 feature_space = np.array(feature_space)
@@ -102,8 +99,6 @@ match dim_red_method:
         print("SVD")
         # U, S, VT = np.linalg.svd(feature_space)
         U, S, VT = svd(feature_space)
-        print(U)
-
         U_k = U[:, :k]
         S_k = np.diag(S[:k])
 
@@ -112,14 +107,19 @@ match dim_red_method:
                                      latent_semantics, axis=0)
 
         print(latent_semantics)
+        print(len(latent_semantics), len(feature_ids), len(feature_space))
 
-        # file_name = "svd_" + str(k) + "_latent_semantics_" + \
-        #     feature_names[feature - 1] + ".csv"
-        # np.savetxt(file_name,
-        #            latent_semantics, delimiter=',', fmt='%f')
-        # df = pd.read_csv(file_name)
-        # header = [i for i in range(len(df))]
-        # df.to_csv(file_name, index=True)
+        for i in range(len(latent_semantics) - 1):
+            ls_collection.insert_one(
+                {"image_id": str(feature_ids[i]), "latent_semantic": list(latent_semantics[i + 1].flatten()), "ls_k": k, "dim_red_method": "svd", "feature_space": feature_names[feature - 1]})
+
+        file_name = "svd_" + str(k) + "_latent_semantics_" + \
+            feature_names[feature - 1] + ".csv"
+        np.savetxt(file_name,
+                   latent_semantics, delimiter=',', fmt='%f')
+        df = pd.read_csv(file_name)
+        header = [i for i in range(len(df))]
+        df.to_csv(file_name, index=True)
 
     case 2:
         print("NNMF")
@@ -130,6 +130,10 @@ match dim_red_method:
                                      W, axis=0)
 
         print(latent_semantics)
+
+        for i in range(len(latent_semantics) - 1):
+            ls_collection.insert_one(
+                {"image_id": str(feature_ids[i]), "latent_semantic": list(latent_semantics[i + 1]), "ls_k": k, "dim_red_method": "nnmf", "feature_space": feature_names[feature - 1]})
 
         file_name = "nnmf_" + str(k) + "_latent_semantics_" + \
             feature_names[feature - 1] + ".csv"
@@ -155,6 +159,10 @@ match dim_red_method:
 
         print(topics)
 
+        for i in range(len(topics) - 1):
+            ls_collection.insert_one(
+                {"image_id": str(feature_ids[i]), "latent_semantic": list(topics[i + 1]), "ls_k": k, "dim_red_method": "lda", "feature_space": feature_names[feature - 1]})
+
         file_name = "lda_" + str(k) + "_latent_semantics_" + \
             feature_names[feature - 1] + ".csv"
         np.savetxt(file_name,
@@ -173,7 +181,11 @@ match dim_red_method:
 
         print(latent_semantics)
 
-        file_name = "nnmf_" + str(k) + "_latent_semantics_" + \
+        for i in range(len(latent_semantics) - 1):
+            ls_collection.insert_one(
+                {"image_id": str(feature_ids[i]), "latent_semantic": list(latent_semantics[i + 1]), "ls_k": k, "dim_red_method": "kmeans", "feature_space": feature_names[feature - 1]})
+
+        file_name = "kmeans_" + str(k) + "_latent_semantics_" + \
             feature_names[feature - 1] + ".csv"
         np.savetxt(file_name,
                    latent_semantics, delimiter=',', fmt='%f')

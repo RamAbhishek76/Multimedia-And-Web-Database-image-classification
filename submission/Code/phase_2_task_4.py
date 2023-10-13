@@ -6,6 +6,7 @@ from pymongo.server_api import ServerApi
 import csv
 import numpy as np
 
+
 def save_to_file(semantics, filename):
     with open(filename, 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
@@ -59,6 +60,7 @@ print("Select one of the features: ")
 print("1. Color Moment\n2. HoG\n3. Layer3\n4. AvgPool\n5. FC")
 feature = int(input("Choose one of the feature space from above: "))
 k = int(input("Enter k value: "))
+
 
 feature_names = ['color_moment', 'hog', 'layer3', 'avgpool', 'fc']
 user_feature = feature_names[feature - 1]

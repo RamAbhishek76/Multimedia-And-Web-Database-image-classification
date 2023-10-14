@@ -46,7 +46,7 @@ def task_2_output_plotter(feature_name, label, feature_vals, feature_val_keys, k
     fig = plt.figure(figsize=(10, 7))
     fig.add_subplot(2, 6, 1)
 
-    fig.suptitle(feature_name + ' query top 10 outputs for input image ID ' +
+    fig.suptitle(feature_name + ' query top 10 outputs for input label ' +
                  str(label), fontsize=16)
 
     im = collection.find_one({"target": label})

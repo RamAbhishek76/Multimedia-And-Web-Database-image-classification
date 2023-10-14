@@ -9,8 +9,8 @@ from database_connection import connect_to_mongo
 
 client = connect_to_mongo()
 db = client.cse515_project_phase1
-collection = db.features
-rep_collection = db.representative_images
+collection = db.phase2_features
+rep_collection = db.phase2_representative_images
 
 query_label = int(input("Enter the query label: "))
 print("select one of the features: ")

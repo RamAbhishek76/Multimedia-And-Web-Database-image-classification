@@ -19,7 +19,7 @@ np.set_printoptions(suppress=True)
 client = connect_to_mongo()
 db = client.cse515_project_phase1
 features_collection = db.features
-rep_collection = db.new_representative_images
+rep_collection = db.phase2_representative_images
 
 transforms = transforms.Compose([
     transforms.ToTensor(),
@@ -67,38 +67,53 @@ match feature:
 
 feature_ranks = {}
 iids = []
-for rep_images in rep_collection.find():
-    iids.append(rep_images["image_id"])
 
-print(iids)
-for image in features_collection.find({"image_id": {"$in": iids}}):
+for image in rep_collection.find({"feature": feature_names[feature - 1]}):
     if image:
         print(image["image_id"])
         image_feature = np.array(
-            image[feature_names[feature - 1]]).flatten()
-
-        dcm = 9999
-        match feature:
-            case 1:
-                d_cm = distance.euclidean(
-                    image_feature, np.array(query_image_feature).flatten())
-            case 2:
-                d_cm = distance.cosine(
-                    image_feature, np.array(query_image_feature).flatten())
-                print(image["image_id"], d_cm)
-            case 3:
-                d_cm = distance.cosine(
-                    image_feature, np.array(query_image_feature).flatten())
-            case 4:
-                # cosine is giving acceptable results (the expected result is withing top 5)
-                d_cm = distance.cosine(
-                    image_feature, np.array(query_image_feature).flatten())
-            case 5:
-                d_cm = distance.cosine(
-                    image_feature, np.array(query_image_feature).flatten())
-        feature_ranks[d_cm] = image["target"]
-
+            image["feature_value"]).flatten()
+        if len(image_feature) > 0:
+            match feature:
+                case 1:
+                    d_cm = distance.euclidean(
+                        image_feature, np.array(query_image_feature).flatten())
+                case 2:
+                    d_cm = distance.cosine(
+                        image_feature, np.array(query_image_feature).flatten())
+                    print(image["image_id"], d_cm)
+                case 3:
+                    d_cm = distance.cosine(
+                        image_feature, np.array(query_image_feature).flatten())
+                case 4:
+                    # cosine is giving acceptable results (the expected result is withing top 5)
+                    d_cm = distance.cosine(
+                        image_feature, np.array(query_image_feature).flatten())
+                case 5:
+                    d_cm = distance.cosine(
+                        image_feature, np.array(query_image_feature).flatten())
+            feature_ranks[d_cm] = image["image_id"]
+c = 0
+ids = []
 cm_keys = sorted(feature_ranks.keys())
 
-for i in range(k):
-    print(feature_ranks[cm_keys[i]], cm_keys[i])
+for i in cm_keys:
+    print(c, len(set(ids)), set(ids))
+    c += 1
+    image_details = features_collection.find_one(
+        {"image_id": feature_ranks[i]})
+
+    ids.append(image_details["target"])
+    if (len(set(ids)) == k + 1):
+        break
+    feature_ranks[i] = image_details["target"]
+
+used_targets = []
+print("| Label | Score |")
+i = 0
+
+while i < k:
+    if feature_ranks[cm_keys[i]] not in used_targets:
+        print("| " + str(feature_ranks[cm_keys[i]]) +
+              " | " + str((max(cm_keys)/cm_keys[i]) - 1) + " |")
+        i += 1

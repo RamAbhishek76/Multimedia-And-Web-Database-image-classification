@@ -31,6 +31,18 @@ class_prob = torch.nn.functional.softmax(resnet_output[0], dim=0)
 
 print(len(class_prob))
 predicted_class_index = torch.argmax(class_prob)
-print(predicted_class_index)
-for i in range(k):
-    print(i, class_prob[i])
+
+class_prob_dict = {}
+
+for i in range(len(class_prob)):
+    class_prob_dict[class_prob[i]] = i
+
+cp_keys = sorted(list(class_prob_dict.keys()), reverse=True)
+
+print("Top K matching labels for image ID " + str(query_image))
+print("| Label | Score |")
+i = 0
+
+for i in range(10):
+    print("| " + str(class_prob_dict[cp_keys[i]]) +
+          " | " + str(cp_keys[i].item()) + " |")

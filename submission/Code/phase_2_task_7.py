@@ -28,6 +28,7 @@ feature = int(input("Select one of the feature space from above:"))
 client = connect_to_mongo()
 db = client.cse515_project_phase1
 collection = db.phase2_ls1
+features = db.phase2_features
 
 # Get features of query image
 transforms = transforms.Compose([
@@ -107,14 +108,25 @@ match ls:
         for i in range(k_val):
             print(distances[dist_keys[i]], dist_keys[i])
     case 3:
+        latent_semantics = []
         for image_ls in collection.find({"ls_k": int(ls_k), "dim_red_method": "lda", "feature_space": feature_names[feature - 1]}):
             print(image_ls['image_id'], image_ls["feature_space"])
+            latent_semantics.append(image_ls["latent_semantic"])
+
+        processed_latent_semantics = []
+
+        for i in features.find():
+            processed_latent_semantics.append(
+                {"image_id": i["image_id"], "feature": [distance.euclidean(np.array(i[feature_names[feature - 1]]).flatten(), j) for j in latent_semantics]})
+
+        for processed_feature in processed_latent_semantics:
             d = distance.euclidean(
-                query_image_feature_projected.flatten(), image_ls["latent_semantic"])
-            distances[d] = image_ls["image_id"]
+                processed_feature["feature"], query_image_feature)
+            distances[d] = processed_feature["image_id"]
 
         dist_keys = sorted(distances.keys())
         for i in range(k_val):
             print(distances[dist_keys[i]], dist_keys[i])
+        print(len(processed_latent_semantics))
     case 4:
         print("kmeans")

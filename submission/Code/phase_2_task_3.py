@@ -1,9 +1,22 @@
 import numpy as np
 import pandas as pd
+import torchvision
+import torch
+from torchvision.transforms import transforms
 from sklearn.decomposition import LatentDirichletAllocation
 from scipy.spatial import distance
 
 from database_connection import connect_to_mongo
+
+transforms = transforms.Compose([
+    transforms.ToTensor(),
+])
+
+# Loading the dataset
+dataset = torchvision.datasets.Caltech101(
+    'D:\ASU\Fall Semester 2023 - 24\CSE515 - Multimedia and Web Databases', transform=transforms, download=True)
+data_loader = torch.utils.data.DataLoader(
+    dataset, batch_size=4, shuffle=True, num_workers=8)
 
 
 def svd(A):
@@ -238,13 +251,15 @@ match dim_red_method:
             d = [distance.euclidean(np.array(
                 image[feature_names[feature - 1]]).flatten(), ls) for ls in latent_semantics]
             final_ls.append(d)
+            _, label = dataset[int(image["image_id"])]
+            print(label)
+            ls_collection.insert_one(
+                {"image_id": str(image["image_id"]), "latent_semantic": list(d), "ls_k": k, "dim_red_method": "kmeans", "feature_space": feature_names[feature - 1], "target": label})
 
         final_ls = np.append([[i for i in range(len(final_ls[0]))]],
                              final_ls, axis=0)
 
         for i in range(len(final_ls) - 1):
-            ls_collection.insert_one(
-                {"image_id": str(feature_ids[i]), "latent_semantic": list(final_ls[i + 1]), "ls_k": k, "dim_red_method": "kmeans", "feature_space": feature_names[feature - 1]})
             weights[np.linalg.norm(
                 list(final_ls[i + 1].flatten()))] = feature_ids[i]
 

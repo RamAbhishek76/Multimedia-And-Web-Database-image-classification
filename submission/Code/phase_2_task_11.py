@@ -1,71 +1,120 @@
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
-import numpy as np
 import networkx as nx
-from scipy.spatial import distance
+import numpy as np
+from database_connection import connect_to_mongo
 
-# Database Connection
-def connect_to_mongo():
-    uri = "mongodb://localhost:27017/CSE515ProjectDB"
-    client = MongoClient(uri, server_api=ServerApi('1'))
-    return client
-
-client = connect_to_mongo()
-db = client.CSE515ProjectDB
-collection = db.Phase2
-
-def get_feature_for_image(image_id, feature_name):
-    image_data = collection.find_one({"image_id": image_id})
-    if image_data and feature_name in image_data:
-        return np.array(image_data[feature_name])
+def fetch_data_from_db(descriptor, is_latent_space):
+    """
+    Fetch the desired feature for all images from the MongoDB collection.
+    """
+    client = connect_to_mongo()
+    db = client.cse515
+    if not is_latent_space:
+        collection = db.Phase2
+        data = []
+        for image_data in collection.find():
+            if descriptor in image_data:
+                entry = {
+                    'image_id': image_data['image_id'],
+                    'feature': np.array(image_data[descriptor]),
+                    'label': image_data['target']
+                }
+                data.append(entry)
     else:
-        return None
+        collection = db.merged_collection
+        data = []
+        k, feature, method = descriptor
+        for image_data in collection.find():
+            if k == image_data['ls_k'] and feature == image_data['feature_space'] and method == image_data['dim_red_method']:
+                entry = {
+                    'image_id': image_data['image_id'],
+                    'feature': np.array(image_data['latent_semantic']),
+                    'label': image_data['target']
+                }
+                data.append(entry)
+    return data
 
-def get_all_features(feature_name):
-    return [get_feature_for_image(str(i), feature_name) for i in range(1, 1001)]  # Assuming 1000 images
-
-def construct_similarity_graph(features, n):
-    num_images = len(features)
-    adjacency_matrix = np.zeros((num_images, num_images))
+def create_similarity_graph(data, n):
+    """
+    Create a similarity graph based on feature vectors.
+    """
+    G = nx.Graph()
     
-    for i in range(num_images):
-        distances = [distance.euclidean(features[i], f) if f is not None else float('inf') for f in features]
-        k_nearest = np.argsort(distances)[:n]
-        for j in k_nearest:
-            adjacency_matrix[i][j] = 1
+    for i, entry in enumerate(data):
+        G.add_node(entry['image_id'])
+        
+        # Compute similarities
+        similarities = [np.dot(entry['feature'], other_entry['feature']) for other_entry in data]
+        
+        # Get top n most similar images
+        top_n_indices = sorted(range(len(similarities)), key=lambda k: similarities[k])[-n:]
+        
+        for index in top_n_indices:
+            G.add_edge(entry['image_id'], data[index]['image_id'])
             
-    return adjacency_matrix
+    return G
 
-def personalized_page_rank(adjacency_matrix, label_l, alpha=0.85, max_iter=100, tol=1e-6):
-    num_nodes = adjacency_matrix.shape[0]
-    outbound_strength = np.sum(adjacency_matrix, axis=1)
+def personalized_page_rank(G, label, m, data):
+    """
+    Compute personalized PageRank and get top m images.
+    """
+    personalization = {entry['image_id']: 1 if entry['label'] == label else 0 for entry in data}
+    ranks = nx.pagerank(G, personalization=personalization)
     
-    transition_matrix = adjacency_matrix / outbound_strength[:, None]
-    transition_matrix = np.nan_to_num(transition_matrix)
+    # Sort nodes by rank and get top m
+    top_m_nodes = sorted(ranks, key=ranks.get, reverse=True)[:m]
     
-    p = np.zeros(num_nodes)
-    p[label_l] = 1
-    
-    r = np.full(num_nodes, 1/num_nodes)
-    for _ in range(max_iter):
-        r_new = alpha * np.dot(transition_matrix, r) + (1 - alpha) * p
-        if np.linalg.norm(r_new - r, 2) < tol:
-            break
-        r = r_new
-    
-    return r
+    return top_m_nodes
 
-def main():
-    feature_name = input("Enter the feature model or latent space (color_moment, hog, layer3, avgpool, fc): ")
-    n = int(input("Enter the value of n (number of similar images for graph): "))
-    m = int(input("Enter the value of m (number of significant images to return): "))
-    label_l = int(input("Enter the label l: "))
-
-    features = get_all_features(feature_name)
-    similarity_graph = construct_similarity_graph(features, n)
-    significance_scores = personalized_page_rank(similarity_graph, label_l)
+def main(descriptor, n, m, label, is_feature_model):
+    data = fetch_data_from_db(descriptor, is_feature_model)
+    G = create_similarity_graph(data, n)
+    significant_images = personalized_page_rank(G, label, m, data)
     
-    top_m_indices = np.argsort(significance_scores)[-m:]
-    print(f"Top {m} significant images (indices): {top_m_indices}")
+    return significant_images
 
-main()
+# Example usage
+feature_or_ls = input("Do you want to enter a feature Model? (Y/N): ")
+is_latent_space = True if feature_or_ls.lower() == 'n' else False
+if is_latent_space:
+    print("Enter the latent space model: ")
+    print("1. LS1 (T3)\n2. LS2 (T4)\n3. LS3 (T5)\n4. LS4 (T6)\n")
+    ls = int(input("Choose one of the latent space model from above: "))
+    if ls == 1:
+        print("select one of the features: ")
+        print("1. Color Moment\n2.HoG\n3. Layer3\n4. AvgPool\n5. FC")
+        feature = int(input("Choose one of the feature space from above: "))
+        k = int(input("Enter k value: "))
+        print("Select one of the dimensionality reduction methods: ")
+        print("1. SVD\n2.NNMF\n3. LDA\n4. K Means")
+        dim_red_method = int(input("Choose one from above: "))
+
+        feature_names = ['color_moment',
+                        'hog', 'layer3', 'avgpool', 'fc']
+        dim_red_names = ["svd", "nnmf", "lda", "kmeans"]
+
+        feature_space = []
+        user_feature = feature_names[feature - 1]
+        method = dim_red_names[dim_red_method-1]
+        descriptor = (k, user_feature, method)
+    elif ls == 2:
+        pass
+    elif ls == 3:
+        pass
+    elif ls == 4:
+        pass
+    else:
+        print("Invalid input")
+        exit()
+    user_feature = ""
+else:
+    print("Enter the feature model: ")
+    print("1. Color Moment\n2. HoG\n3. Layer3\n4. AvgPool\n5. FC")
+    feature = int(input("Choose one of the feature space from above: "))
+    feature_names = ['color_moment', 'hog', 'layer3', 'avgpool', 'fc']
+    descriptor = feature_names[feature - 1]
+
+n = int(input("Enter the value of n: "))
+m = int(input("Enter the value of m: "))
+label = int(input("Enter the label: "))
+
+print(main(descriptor, n, m, label, is_latent_space))

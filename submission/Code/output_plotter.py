@@ -71,3 +71,33 @@ def task_2_output_plotter(feature_name, label, feature_vals, feature_val_keys, k
                   "\nDistance: " + str(round(feature_val_keys[i], 4))))
 
     plt.show()
+
+
+def task_7_output_plotter(sim_measures, sim_measure_keys, k, query_image):
+    fig = plt.figure(figsize=(10, 7))
+    fig.add_subplot(2, 6, 1)
+
+    fig.suptitle('query top 10 outputs for input image ID ' +
+                 str(query_image), fontsize=16)
+
+    im = collection.find_one({"image_id": query_image})
+    # Plotting the input image in the figure
+    plt.imshow((numpy.squeeze(torch.tensor(
+        numpy.array(im["image"])).permute(1, 2, 0))))
+    plt.title("Query Image ID: " + str(query_image))
+
+    print("Results" + ":")
+    # Plotting the images produced by the query result
+    for i in range(1, k):
+        print(sim_measures[sim_measure_keys[i]])
+        image = collection.find_one(
+            {"image_id": sim_measures[sim_measure_keys[i]]})
+        img = torch.tensor(numpy.array(image["image"]))
+
+        fig.add_subplot(2, 6, i + 1)
+        plt.imshow((numpy.squeeze(img.permute(1, 2, 0))))
+        plt.axis('off')
+        plt.title("Result ID: " + str(image["image_id"] +
+                  "\nDistance: " + str(round(sim_measure_keys[i], 4))))
+
+    plt.show()

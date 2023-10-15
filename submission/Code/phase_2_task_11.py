@@ -117,4 +117,5 @@ n = int(input("Enter the value of n: "))
 m = int(input("Enter the value of m: "))
 label = int(input("Enter the label: "))
 
+print(f"Output for {descriptor}")
 print(main(descriptor, n, m, label, is_latent_space))

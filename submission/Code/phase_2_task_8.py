@@ -15,17 +15,17 @@ from database_connection import connect_to_mongo
 from color_moment import extract_color_moment
 from hog import extract_hog
 from resnet import extract_from_resnet
+
 # Enter the query image ID
 query_image_id = str(input('Enter query image ID'))
-print("1. SVD.\n2. NNMF.\n3.LDA.\n4.K Means\n", end="")
-dim_red_names = ["svd", "nnmf", "lda", "kmeans"]
 
-# Select one of the latent spaces
+# Select latent semantics
+print("1. SVD.\n2. NNMF.\n3.LDA.\n4.K Means\n", end="")
 ls = int(input("Select one of the above: "))
 ls_k = str(input("Enter the latent sematic dimensionality: "))
-feature_names = ["color_moment", "hog", "layer3", "avgpool", "fc"]
 print("1. Color Moment\n2. HoG.\n3. Layer 3.\n4. AvgPool.\n5. FC.")
 feature = int(input("Select one of the features:"))
+
 # Enter the number of top similar labels to be printed
 k_val = int(input("Enter how many output images are required:"))
 
@@ -34,6 +34,8 @@ db = client.cse515_project_phase1
 collection = db.phase2_ls1
 re_collection = db.phase2_representative_images
 
+dim_red_names = ["svd", "nnmf", "lda", "kmeans"]
+feature_names = ["color_moment", "hog", "layer3", "avgpool", "fc"]
 
 # Get features of query image
 transforms = transforms.Compose([
@@ -69,10 +71,10 @@ if len(resized_img) == 3:
 query_image_feature = np.array(
     query_image_features[feature_names[feature - 1]]).flatten()
 
+# Find distances of the query image to all the cluster centers
 processed_query_feature = []
 
 for image in re_collection.find({"feature": feature_names[feature - 1]}):
-    print(len(image["feature_value"]), len(query_image_feature))
     if len(image['feature_value']) > 0:
         d = distance.euclidean(np.array(image["feature_value"]).flatten(
         ), np.array(query_image_feature).flatten())
@@ -82,8 +84,7 @@ for image in re_collection.find({"feature": feature_names[feature - 1]}):
         print("yes")
         processed_query_feature.append(max(processed_query_feature))
 
-# ls = np.argpartition(processed_query_feature, 10)
-# print(ls)
+print(np.argmin(processed_query_feature))
 
 file_name = dim_red_names[ls - 1] + "_" + str(ls_k) + "_label_label_similarity_" + \
     feature_names[feature - 1] + ".csv"
@@ -91,24 +92,12 @@ ls_df = pd.read_csv(file_name)
 
 latent_space = [i[1:] for i in ls_df.values.tolist()]
 
-q, _ = np.linalg.qr(latent_space)
+latent_space_feature = latent_space[np.argmin(processed_query_feature)]
 
-processed_query_feature = np.dot(processed_query_feature, q)
+distances = [distance.euclidean(i, latent_space_feature) for i in latent_space]
 
-distances = {}
-m = max([abs(i) for i in processed_query_feature])
-processed_query_feature = [i/m for i in processed_query_feature]
+res = np.argsort(distances)[:k_val]
 
-dis = []
-for i in range(len(latent_space)):
-    d = distance.cosine(processed_query_feature, latent_space[i])*100
-    distances[d] = i
-    dis.append(d)
-
-# dist_keys = sorted(distances.keys())
-# for i in range(k_val):
-#     print(distances[dist_keys[i]], dist_keys[i])
-
-ls = np.argpartition(dis, 10)
-print(ls)
-print(dis)
+print(f'Top {k_val} labels for image {query_image_id}')
+for i in range(len(res)):
+    print(f'{i + 1}. {res[i]}')

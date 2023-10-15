@@ -4,6 +4,7 @@ from scipy.spatial import distance
 import numpy as np
 from sklearn.cluster import KMeans
 from database_connection import connect_to_mongo
+from output_plotter import task_10_output_plotter
 
 client = connect_to_mongo()
 db = client.cse515_project_phase1
@@ -52,18 +53,13 @@ print("Calculating Latent Space distances")
 for image in ls_collection.find({"ls_k": int(ls_k), "dim_red_method": dim_red_names[dim_red - 1], "feature_space": feature_names[feature - 1]}):
     d = distance.euclidean(
         np.array(image['latent_semantic']).flatten(), input_label_feature)
-    l = features_coll.find_one({"image_id": image["image_id"]})
-
-    distances[d] = l["target"]
+    distances[d] = image["image_id"]
 
 dist_keys = sorted(list(distances.keys()))
 
-print(f"Top {top_k} labels for query label {input_label}")
-print("| Label | Distance")
-labels = []
+res = []
 for i in range(top_k):
-    if distances[dist_keys[i]] not in (labels):
-        labels.append(distances[dist_keys[i]])
-        print(f'| {distances[dist_keys[i]]} | {max(dist_keys)/dist_keys[i]} |')
-    if len(set(labels)) == top_k:
-        break
+    print(distances[dist_keys[i]], dist_keys[i])
+    res.append((distances[dist_keys[i]], dist_keys[i]))
+
+task_10_output_plotter(res, input_label)

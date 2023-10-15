@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import LatentDirichletAllocation
+from scipy.spatial import distance
+
 from database_connection import connect_to_mongo
 
 
@@ -98,7 +100,6 @@ feature_space = np.array(feature_space)
 match dim_red_method:
     case 1:
         print("SVD")
-        # U, S, VT = np.linalg.svd(feature_space)
         U, S, VT = svd(feature_space)
         U_k = U[:, :k]
         S_k = np.diag(S[:k])
@@ -185,16 +186,24 @@ match dim_red_method:
         for topic_idx, topic in enumerate(lda.components_):
             topics.append(topic)
 
-        topics = np.append([[i for i in range(len(topics[0]))]],
-                           topics, axis=0)
+        latent_semantics = []
+
+        for image in collection.find():
+            print(image["image_id"])
+            d = [distance.euclidean(np.array(
+                image[feature_names[feature - 1]]).flatten(), topic) for topic in topics]
+            latent_semantics.append(d)
+
+        latent_semantics = np.append([[i for i in range(len(latent_semantics[0]))]],
+                                     latent_semantics, axis=0)
 
         weights = {}
 
         for i in range(len(topics) - 1):
             ls_collection.insert_one(
-                {"image_id": str(feature_ids[i]), "latent_semantic": list(topics[i + 1]), "ls_k": k, "dim_red_method": "lda", "feature_space": feature_names[feature - 1]})
+                {"image_id": str(feature_ids[i]), "latent_semantic": list(latent_semantics[i + 1]), "ls_k": k, "dim_red_method": "lda", "feature_space": feature_names[feature - 1]})
             weights[np.linalg.norm(
-                list(topics[i + 1].flatten()))] = feature_ids[i]
+                list(latent_semantics[i + 1].flatten()))] = feature_ids[i]
 
         keys = sorted(list(weights.keys()), reverse=True)
 
@@ -211,7 +220,7 @@ match dim_red_method:
             file_name = "lda_" + str(k) + "_latent_semantics_" + \
                 feature_names[feature - 1] + ".csv"
             np.savetxt(file_name,
-                       topics, delimiter=',', fmt='%f')
+                       latent_semantics, delimiter=',', fmt='%f')
             df = pd.read_csv(file_name)
             header = [i for i in range(len(df))]
             df.to_csv(file_name, index=True)
@@ -219,18 +228,25 @@ match dim_red_method:
     case 4:
         print("KMeans")
 
-        new_centroids = k_means(feature_space, k)
-
-        latent_semantics = np.append([[i for i in range(len(new_centroids[0]))]],
-                                     new_centroids, axis=0)
+        latent_semantics = k_means(feature_space, k)
 
         weights = {}
+        final_ls = []
 
-        for i in range(len(latent_semantics) - 1):
+        for image in collection.find():
+            print(image["image_id"])
+            d = [distance.euclidean(np.array(
+                image[feature_names[feature - 1]]).flatten(), ls) for ls in latent_semantics]
+            final_ls.append(d)
+
+        final_ls = np.append([[i for i in range(len(final_ls[0]))]],
+                             final_ls, axis=0)
+
+        for i in range(len(final_ls) - 1):
             ls_collection.insert_one(
-                {"image_id": str(feature_ids[i]), "latent_semantic": list(latent_semantics[i + 1]), "ls_k": k, "dim_red_method": "kmeans", "feature_space": feature_names[feature - 1]})
+                {"image_id": str(feature_ids[i]), "latent_semantic": list(final_ls[i + 1]), "ls_k": k, "dim_red_method": "kmeans", "feature_space": feature_names[feature - 1]})
             weights[np.linalg.norm(
-                list(latent_semantics[i + 1].flatten()))] = feature_ids[i]
+                list(final_ls[i + 1].flatten()))] = feature_ids[i]
 
         keys = sorted(list(weights.keys()), reverse=True)
 
@@ -247,7 +263,7 @@ match dim_red_method:
             file_name = "kmeans_" + str(k) + "_latent_semantics_" + \
                 feature_names[feature - 1] + ".csv"
             np.savetxt(file_name,
-                       latent_semantics, delimiter=',', fmt='%f')
+                       final_ls, delimiter=',', fmt='%f')
             df = pd.read_csv(file_name)
             header = [i for i in range(len(df))]
             df.to_csv(file_name, index=True)

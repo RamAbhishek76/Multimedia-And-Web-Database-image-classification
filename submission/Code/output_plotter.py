@@ -8,6 +8,7 @@ from database_connection import connect_to_mongo
 client = connect_to_mongo()
 db = client.cse515_project_phase1
 collection = db.features
+rep_collection = db.phase2_representative_images
 
 
 def output_plotter(feature_name, input_image, feature_vals, feature_val_keys, k):
@@ -99,5 +100,36 @@ def task_7_output_plotter(sim_measures, sim_measure_keys, k, query_image):
         plt.axis('off')
         plt.title("Result ID: " + str(image["image_id"] +
                   "\nDistance: " + str(round(sim_measure_keys[i], 4))))
+
+    plt.show()
+
+
+def task_10_output_plotter(res, query_image):
+    fig = plt.figure(figsize=(10, 7))
+    fig.add_subplot(2, 6, 1)
+
+    fig.suptitle(
+        f'Query top {len(res)} outputs for input image label {query_image}', fontsize=16)
+
+    im = rep_collection.find_one({"target": query_image})
+    im = collection.find_one({"image_id": im['image_id']})
+    # Plotting the input image in the figure
+    plt.imshow((numpy.squeeze(torch.tensor(
+        numpy.array(im["image"])).permute(1, 2, 0))))
+    plt.title("Query Image ID: " + str(query_image))
+
+    print("Results" + ":")
+    # Plotting the images produced by the query result
+    for i in range(1, len(res)):
+        print(res[i][0])
+        image = collection.find_one(
+            {"image_id": str(res[i][0])})
+        img = torch.tensor(numpy.array(image["image"]))
+
+        fig.add_subplot(2, 6, i + 1)
+        plt.imshow((numpy.squeeze(img.permute(1, 2, 0))))
+        plt.axis('off')
+        plt.title("Result ID: " + str(image["image_id"] +
+                  "\nDistance: " + str(round(res[i][1], 4))))
 
     plt.show()

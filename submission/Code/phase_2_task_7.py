@@ -129,4 +129,23 @@ match ls:
             print(distances[dist_keys[i]], dist_keys[i])
         print(len(processed_latent_semantics))
     case 4:
-        print("kmeans")
+        latent_semantics = []
+        for image_ls in collection.find({"ls_k": int(ls_k), "dim_red_method": "kmeans", "feature_space": feature_names[feature - 1]}):
+            print(image_ls['image_id'], image_ls["feature_space"])
+            latent_semantics.append(image_ls["latent_semantic"])
+
+        processed_latent_semantics = []
+
+        for i in features.find():
+            processed_latent_semantics.append(
+                {"image_id": i["image_id"], "feature": [distance.euclidean(np.array(i[feature_names[feature - 1]]).flatten(), j) for j in latent_semantics]})
+
+        for processed_feature in processed_latent_semantics:
+            d = distance.euclidean(
+                processed_feature["feature"], query_image_feature)
+            distances[d] = processed_feature["image_id"]
+
+        dist_keys = sorted(distances.keys())
+        for i in range(k_val):
+            print(distances[dist_keys[i]], dist_keys[i])
+        print(len(processed_latent_semantics))

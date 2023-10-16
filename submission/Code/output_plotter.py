@@ -133,3 +133,32 @@ def task_10_output_plotter(res, query_image):
                   "\nDistance: " + str(round(res[i][1], 4))))
 
     plt.show()
+
+
+def output_plotter_task_11(dataset, label, feature_descriptor, input_image_id_list):
+    def closest_factors(n):
+        factor = int(n ** 0.5)
+
+        while n % factor != 0:
+            factor -= 1
+
+        return factor, n // factor
+
+    no_of_images = len(input_image_id_list)
+    rows, columns = closest_factors(no_of_images)
+    for i, image_id in enumerate(input_image_id_list):
+        image, label = dataset[int(image_id)]
+        image = image.numpy().transpose((1, 2, 0))
+        mean = [0.485, 0.456, 0.406]
+        std = [0.229, 0.224, 0.225]
+        image = image * std + mean
+        image = image.clip(0, 1)
+
+        plt.subplot(rows, columns, i+1)
+        plt.imshow(image)
+        plt.title(f"Label: {label}")
+
+    plt.suptitle(
+        f'These are the images for label: {label} and feature descriptor: {feature_descriptor}')
+    plt.tight_layout()
+    plt.show()

@@ -61,6 +61,13 @@ print("Select one of the features: ")
 print("1. Color Moment\n2. HoG\n3. Layer3\n4. AvgPool\n5. FC")
 feature = int(input("Choose one of the feature space from above: "))
 k = int(input("Enter k value: "))
+feature_names = ['color_moment',
+                 'hog', 'layer3', 'avgpool', 'fc']
+feature_space = []
+user_feature = feature_names[feature - 1]
+for img in collection.find():
+    print(img['image_id'])
+    feature_space.append(np.array(img[user_feature]).flatten())
 
 feature_names = ['color_moment', 'hog', 'layer3', 'avgpool', 'fc']
 user_feature = feature_names[feature - 1]

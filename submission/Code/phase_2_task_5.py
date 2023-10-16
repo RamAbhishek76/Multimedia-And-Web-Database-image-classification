@@ -3,8 +3,17 @@ from sklearn.decomposition import LatentDirichletAllocation
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 import pandas as pd
+import torchvision
+import torch
+from torchvision.transforms import transforms
 
 from database_connection import connect_to_mongo
+
+# Loading the dataset
+dataset = torchvision.datasets.Caltech101(
+    'D:\ASU\Fall Semester 2023 - 24\CSE515 - Multimedia and Web Databases', transform=transforms, download=True)
+data_loader = torch.utils.data.DataLoader(
+    dataset, batch_size=4, shuffle=True, num_workers=8)
 
 
 def nnmf(feature_space, k):
@@ -74,6 +83,7 @@ client = connect_to_mongo()
 db = client.cse515_project_phase1
 features_coll = db.phase2_features
 rep_images = db.phase2_representative_images
+ls_collection = db.phase2_ls3
 
 sim_matrix = np.zeros(shape=(101, 101))
 
@@ -167,17 +177,37 @@ match dim_red_method:
             print()
     case 4:
         print("KMeans")
-        new_centroids = k_means(similarity_matrix_normalized, k)
+        latent_semantics = k_means(similarity_matrix_normalized, k)
+        latent_semantics_final = []
 
-        latent_semantics = np.append([[i for i in range(len(new_centroids[0]))]],
-                                     new_centroids, axis=0)
+        print("Calculating Image Similarities:")
+        similarities = []
+        for image in features_coll.find():
+            print(image["image_id"])
+            d = []
+            for rep_image in rep_images.find({"feature": feature_names[feature - 1]}):
+                if len(rep_image["feature_value"]):
+                    d.append(distance.euclidean(np.array(image[feature_names[feature - 1]]).flatten(),
+                                                np.array(rep_image["feature_value"]).flatten()))
+                else:
+                    d.append(max(d))
+            similarities.append(d)
+        inn = 0
+        for image in similarities:
+            print(inn)
+            inn += 2
+            d = [distance.euclidean(np.array(image).flatten(), ls)
+                 for ls in latent_semantics]
+            latent_semantics_final.append(d)
+            ls_collection.insert_one(
+                {"image_id": inn, "latent_semantic": list(d), "ls_k": k, "dim_red_method": "kmeans", "feature_space": feature_names[feature - 1]})
 
-        print(latent_semantics)
-
+        latent_semantics_final = np.append([[i for i in range(len(latent_semantics_final[0]))]],
+                                           latent_semantics_final, axis=0)
         file_name = "kmeans_" + str(ls_k) + "_latent_semantics_" + \
             feature_names[feature - 1] + ".csv"
         np.savetxt(file_name,
-                   latent_semantics, delimiter=',', fmt='%f')
+                   latent_semantics_final, delimiter=',', fmt='%f')
         df = pd.read_csv(file_name)
         header = [i for i in range(len(df))]
         df.to_csv(file_name, index=True)

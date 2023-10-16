@@ -13,6 +13,7 @@ from color_moment import extract_color_moment
 from hog import extract_hog
 from resnet import extract_from_resnet
 from output_plotter import task_2_output_plotter
+from input_from_file import input_from_file
 
 np.set_printoptions(suppress=True)
 
@@ -29,7 +30,15 @@ dataset = torchvision.datasets.Caltech101(
 data_loader = torch.utils.data.DataLoader(
     dataset, batch_size=4, shuffle=True, num_workers=8)
 
-query_image_id = int(input("Enter the image ID:"))
+input_image_data = []
+inp_image_id = bool(
+    str(input("Do you want to input Image Path? (y/N)")) == "y")
+print(inp_image_id)
+if inp_image_id:
+    input_image_data = input_from_file()
+else:
+    query_image_id = int(input("Enter the image ID:"))
+    input_image_data = dataset[query_image_id][0]
 print("select one of the features: ")
 print("1. Color Moment\n2.HoG\n3. Layer3\n4. AvgPool\n5. FC")
 feature = int(input("Choose one of the feature space from above: "))
@@ -37,8 +46,6 @@ k = int(input("Enter k value: "))
 
 feature_names = ['color_moment',
                  'hog', 'layer3', 'avgpool', 'fc']
-
-input_image_data = dataset[query_image_id][0]
 
 # resizing the image into 300x10 for Color moment and HoG computation
 resized_img = [cv2.resize(i, (300, 100)) for i in input_image_data.numpy()]

@@ -13,13 +13,14 @@ from color_moment import extract_color_moment
 from hog import extract_hog
 from resnet import extract_from_resnet
 from output_plotter import task_2_output_plotter
+from input_from_file import input_from_file
 
 np.set_printoptions(suppress=True)
 
 client = connect_to_mongo()
 db = client.cse515_project_phase1
 features_collection = db.features
-rep_collection = db.new_representative_images
+rep_collection = db.phase2_representative_images
 
 transforms = transforms.Compose([
     transforms.ToTensor(),
@@ -29,7 +30,15 @@ dataset = torchvision.datasets.Caltech101(
 data_loader = torch.utils.data.DataLoader(
     dataset, batch_size=4, shuffle=True, num_workers=8)
 
-query_image_id = int(input("Enter the image ID:"))
+input_image_data = []
+inp_image_id = bool(
+    str(input("Do you want to input Image Path? (y/N)")) == "y")
+print(inp_image_id)
+if inp_image_id:
+    input_image_data = input_from_file()
+else:
+    query_image_id = int(input("Enter the image ID:"))
+    input_image_data = dataset[query_image_id][0]
 print("select one of the features: ")
 print("1. Color Moment\n2.HoG\n3. Layer3\n4. AvgPool\n5. FC")
 feature = int(input("Choose one of the feature space from above: "))
@@ -37,8 +46,6 @@ k = int(input("Enter k value: "))
 
 feature_names = ['color_moment',
                  'hog', 'layer3', 'avgpool', 'fc']
-
-input_image_data = dataset[query_image_id][0]
 
 # resizing the image into 300x10 for Color moment and HoG computation
 resized_img = [cv2.resize(i, (300, 100)) for i in input_image_data.numpy()]
@@ -67,38 +74,53 @@ match feature:
 
 feature_ranks = {}
 iids = []
-for rep_images in rep_collection.find():
-    iids.append(rep_images["image_id"])
 
-print(iids)
-for image in features_collection.find({"image_id": {"$in": iids}}):
+for image in rep_collection.find({"feature": feature_names[feature - 1]}):
     if image:
         print(image["image_id"])
         image_feature = np.array(
-            image[feature_names[feature - 1]]).flatten()
-
-        dcm = 9999
-        match feature:
-            case 1:
-                d_cm = distance.euclidean(
-                    image_feature, np.array(query_image_feature).flatten())
-            case 2:
-                d_cm = distance.cosine(
-                    image_feature, np.array(query_image_feature).flatten())
-                print(image["image_id"], d_cm)
-            case 3:
-                d_cm = distance.cosine(
-                    image_feature, np.array(query_image_feature).flatten())
-            case 4:
-                # cosine is giving acceptable results (the expected result is withing top 5)
-                d_cm = distance.cosine(
-                    image_feature, np.array(query_image_feature).flatten())
-            case 5:
-                d_cm = distance.cosine(
-                    image_feature, np.array(query_image_feature).flatten())
-        feature_ranks[d_cm] = image["target"]
-
+            image["feature_value"]).flatten()
+        if len(image_feature) > 0:
+            match feature:
+                case 1:
+                    d_cm = distance.euclidean(
+                        image_feature, np.array(query_image_feature).flatten())
+                case 2:
+                    d_cm = distance.cosine(
+                        image_feature, np.array(query_image_feature).flatten())
+                    print(image["image_id"], d_cm)
+                case 3:
+                    d_cm = distance.cosine(
+                        image_feature, np.array(query_image_feature).flatten())
+                case 4:
+                    # cosine is giving acceptable results (the expected result is withing top 5)
+                    d_cm = distance.cosine(
+                        image_feature, np.array(query_image_feature).flatten())
+                case 5:
+                    d_cm = distance.cosine(
+                        image_feature, np.array(query_image_feature).flatten())
+            feature_ranks[d_cm] = image["image_id"]
+c = 0
+ids = []
 cm_keys = sorted(feature_ranks.keys())
 
-for i in range(k):
-    print(feature_ranks[cm_keys[i]], cm_keys[i])
+for i in cm_keys:
+    print(c, len(set(ids)), set(ids))
+    c += 1
+    image_details = features_collection.find_one(
+        {"image_id": feature_ranks[i]})
+
+    ids.append(image_details["target"])
+    if (len(set(ids)) == k + 1):
+        break
+    feature_ranks[i] = image_details["target"]
+
+used_targets = []
+print("| Label | Score |")
+i = 0
+
+while i < k:
+    if feature_ranks[cm_keys[i]] not in used_targets:
+        print("| " + str(feature_ranks[cm_keys[i]]) +
+              " | " + str((max(cm_keys)/cm_keys[i]) - 1) + " |")
+        i += 1

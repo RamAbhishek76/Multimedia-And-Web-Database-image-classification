@@ -10,6 +10,7 @@ from output_plotter import output_plotter
 from color_moment import extract_color_moment
 from hog import extract_hog
 from resnet import extract_from_resnet
+from input_from_file import input_from_file
 
 client = connect_to_mongo()
 db = client.cse515_project_phase1
@@ -83,10 +84,18 @@ while choice != 0:
             print("Features have already been generated!")
 
         case 3:
+            img = []
+            inp_image_id = bool(
+                str(input("Do you want to input Image Path? (y/N)")) == "y")
+            print(inp_image_id)
+            if inp_image_id:
+                img = input_from_file()
+            else:
+                query_image_id = int(input("Enter the image ID:"))
+                img = dataset[query_image_id][0]
             image_id = int(input("Enter image ID: "))
             k = int(input("How many similar images have to be returned"))
 
-            img, label = dataset[image_id]
             resized_img = [cv2.resize(i, (300, 100)) for i in img.numpy()]
             # resizing the image into 224x224 to provide as input to the resnet
             resized_resnet_img = [cv2.resize(

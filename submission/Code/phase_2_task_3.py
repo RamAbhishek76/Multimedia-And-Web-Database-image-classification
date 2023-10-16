@@ -1,7 +1,22 @@
 import numpy as np
 import pandas as pd
+import torchvision
+import torch
+from torchvision.transforms import transforms
 from sklearn.decomposition import LatentDirichletAllocation
+from scipy.spatial import distance
+
 from database_connection import connect_to_mongo
+
+transforms = transforms.Compose([
+    transforms.ToTensor(),
+])
+
+# Loading the dataset
+dataset = torchvision.datasets.Caltech101(
+    'D:\ASU\Fall Semester 2023 - 24\CSE515 - Multimedia and Web Databases', transform=transforms, download=True)
+data_loader = torch.utils.data.DataLoader(
+    dataset, batch_size=4, shuffle=True, num_workers=8)
 
 
 def svd(A):
@@ -79,6 +94,7 @@ k = int(input("Enter k value: "))
 print("Select one of the dimensionality reduction methods: ")
 print("1. SVD\n2.NNMF\n3. LDA\n4. K Means")
 dim_red_method = int(input("Choose one from above: "))
+save_output = str(input("Do you want to save output file? (y/N)")) == 'y'
 
 feature_names = ['color_moment',
                  'hog', 'layer3', 'avgpool', 'fc']
@@ -97,7 +113,6 @@ feature_space = np.array(feature_space)
 match dim_red_method:
     case 1:
         print("SVD")
-        # U, S, VT = np.linalg.svd(feature_space)
         U, S, VT = svd(feature_space)
         U_k = U[:, :k]
         S_k = np.diag(S[:k])
@@ -109,17 +124,33 @@ match dim_red_method:
         print(latent_semantics)
         print(len(latent_semantics), len(feature_ids), len(feature_space))
 
+        weights = {}
+
         for i in range(len(latent_semantics) - 1):
             ls_collection.insert_one(
                 {"image_id": str(feature_ids[i]), "latent_semantic": list(latent_semantics[i + 1].flatten()), "ls_k": k, "dim_red_method": "svd", "feature_space": feature_names[feature - 1]})
+            weights[np.linalg.norm(
+                list(latent_semantics[i + 1].flatten()))] = feature_ids[i]
 
-        file_name = "svd_" + str(k) + "_latent_semantics_" + \
-            feature_names[feature - 1] + ".csv"
-        np.savetxt(file_name,
-                   latent_semantics, delimiter=',', fmt='%f')
-        df = pd.read_csv(file_name)
-        header = [i for i in range(len(df))]
-        df.to_csv(file_name, index=True)
+        keys = sorted(list(weights.keys()), reverse=True)
+
+        id_weight = []
+
+        for i in keys:
+            id_weight.append((str(weights[i]), str(i)))
+
+        df = pd.DataFrame(id_weight)
+        df.to_csv("svd_" + str(k) + "_latent_semantics_" +
+                  feature_names[feature - 1] + "_imageid_weight_" + ".csv", index=False, header=False)
+
+        if save_output:
+            file_name = "svd_" + str(k) + "_latent_semantics_" + \
+                feature_names[feature - 1] + ".csv"
+            np.savetxt(file_name,
+                       latent_semantics, delimiter=',', fmt='%f')
+            df = pd.read_csv(file_name)
+            header = [i for i in range(len(df))]
+            df.to_csv(file_name, index=True)
 
     case 2:
         print("NNMF")
@@ -129,19 +160,33 @@ match dim_red_method:
         latent_semantics = np.append([[i for i in range(len(W[0]))]],
                                      W, axis=0)
 
-        print(latent_semantics)
+        weights = {}
 
         for i in range(len(latent_semantics) - 1):
             ls_collection.insert_one(
                 {"image_id": str(feature_ids[i]), "latent_semantic": list(latent_semantics[i + 1]), "ls_k": k, "dim_red_method": "nnmf", "feature_space": feature_names[feature - 1]})
+            weights[np.linalg.norm(
+                list(latent_semantics[i + 1].flatten()))] = feature_ids[i]
 
-        file_name = "nnmf_" + str(k) + "_latent_semantics_" + \
-            feature_names[feature - 1] + ".csv"
-        np.savetxt(file_name,
-                   latent_semantics, delimiter=',', fmt='%f')
-        df = pd.read_csv(file_name)
-        header = [i for i in range(len(df))]
-        df.to_csv(file_name, index=True)
+        keys = sorted(list(weights.keys()), reverse=True)
+
+        id_weight = []
+
+        for i in keys:
+            id_weight.append((str(weights[i]), str(i)))
+
+        df = pd.DataFrame(id_weight)
+        df.to_csv("nnmf_" + str(k) + "_latent_semantics_" +
+                  feature_names[feature - 1] + "_imageid_weight_" + ".csv", index=False, header=False)
+
+        if save_output:
+            file_name = "nnmf_" + str(k) + "_latent_semantics_" + \
+                feature_names[feature - 1] + ".csv"
+            np.savetxt(file_name,
+                       latent_semantics, delimiter=',', fmt='%f')
+            df = pd.read_csv(file_name)
+            header = [i for i in range(len(df))]
+            df.to_csv(file_name, index=True)
 
     case 3:
         print("LDA")
@@ -154,41 +199,86 @@ match dim_red_method:
         for topic_idx, topic in enumerate(lda.components_):
             topics.append(topic)
 
-        topics = np.append([[i for i in range(len(topics[0]))]],
-                           topics, axis=0)
+        latent_semantics = []
 
-        print(topics)
+        for image in collection.find():
+            print(image["image_id"])
+            d = [distance.euclidean(np.array(
+                image[feature_names[feature - 1]]).flatten(), topic) for topic in topics]
+            latent_semantics.append(d)
+
+        latent_semantics = np.append([[i for i in range(len(latent_semantics[0]))]],
+                                     latent_semantics, axis=0)
+
+        weights = {}
 
         for i in range(len(topics) - 1):
             ls_collection.insert_one(
-                {"image_id": str(feature_ids[i]), "latent_semantic": list(topics[i + 1]), "ls_k": k, "dim_red_method": "lda", "feature_space": feature_names[feature - 1]})
+                {"image_id": str(feature_ids[i]), "latent_semantic": list(latent_semantics[i + 1]), "ls_k": k, "dim_red_method": "lda", "feature_space": feature_names[feature - 1]})
+            weights[np.linalg.norm(
+                list(latent_semantics[i + 1].flatten()))] = feature_ids[i]
 
-        file_name = "lda_" + str(k) + "_latent_semantics_" + \
-            feature_names[feature - 1] + ".csv"
-        np.savetxt(file_name,
-                   topics, delimiter=',', fmt='%f')
-        df = pd.read_csv(file_name)
-        header = [i for i in range(len(df))]
-        df.to_csv(file_name, index=True)
+        keys = sorted(list(weights.keys()), reverse=True)
+
+        id_weight = []
+
+        for i in keys:
+            id_weight.append((str(weights[i]), str(i)))
+
+        df = pd.DataFrame(id_weight)
+        df.to_csv("lda_" + str(k) + "_latent_semantics_" +
+                  feature_names[feature - 1] + "_imageid_weight_" + ".csv", index=False, header=False)
+
+        if save_output:
+            file_name = "lda_" + str(k) + "_latent_semantics_" + \
+                feature_names[feature - 1] + ".csv"
+            np.savetxt(file_name,
+                       latent_semantics, delimiter=',', fmt='%f')
+            df = pd.read_csv(file_name)
+            header = [i for i in range(len(df))]
+            df.to_csv(file_name, index=True)
 
     case 4:
         print("KMeans")
 
-        new_centroids = k_means(feature_space, k)
+        latent_semantics = k_means(feature_space, k)
 
-        latent_semantics = np.append([[i for i in range(len(new_centroids[0]))]],
-                                     new_centroids, axis=0)
+        weights = {}
+        final_ls = []
 
-        print(latent_semantics)
-
-        for i in range(len(latent_semantics) - 1):
+        for image in collection.find():
+            print(image["image_id"])
+            d = [distance.euclidean(np.array(
+                image[feature_names[feature - 1]]).flatten(), ls) for ls in latent_semantics]
+            final_ls.append(d)
+            _, label = dataset[int(image["image_id"])]
+            print(label)
             ls_collection.insert_one(
-                {"image_id": str(feature_ids[i]), "latent_semantic": list(latent_semantics[i + 1]), "ls_k": k, "dim_red_method": "kmeans", "feature_space": feature_names[feature - 1]})
+                {"image_id": str(image["image_id"]), "latent_semantic": list(d), "ls_k": k, "dim_red_method": "kmeans", "feature_space": feature_names[feature - 1], "target": label})
 
-        file_name = "kmeans_" + str(k) + "_latent_semantics_" + \
-            feature_names[feature - 1] + ".csv"
-        np.savetxt(file_name,
-                   latent_semantics, delimiter=',', fmt='%f')
-        df = pd.read_csv(file_name)
-        header = [i for i in range(len(df))]
-        df.to_csv(file_name, index=True)
+        final_ls = np.append([[i for i in range(len(final_ls[0]))]],
+                             final_ls, axis=0)
+
+        for i in range(len(final_ls) - 1):
+            weights[np.linalg.norm(
+                list(final_ls[i + 1].flatten()))] = feature_ids[i]
+
+        keys = sorted(list(weights.keys()), reverse=True)
+
+        id_weight = []
+
+        for i in keys:
+            id_weight.append((str(weights[i]), str(i)))
+
+        df = pd.DataFrame(id_weight)
+        df.to_csv("kmeans_" + str(k) + "_latent_semantics_" +
+                  feature_names[feature - 1] + "_imageid_weight_" + ".csv", index=False, header=False)
+
+        if save_output:
+            file_name = "kmeans_" + str(k) + "_latent_semantics_" + \
+                feature_names[feature - 1] + ".csv"
+            np.savetxt(file_name,
+                       final_ls, delimiter=',', fmt='%f')
+            df = pd.read_csv(file_name)
+            header = [i for i in range(len(df))]
+            df.to_csv(file_name, index=True)

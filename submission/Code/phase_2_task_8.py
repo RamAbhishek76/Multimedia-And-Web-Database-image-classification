@@ -1,103 +1,119 @@
 # • Task 8: Implement a program which, given (a) an (even or odd numbered) imageID or an image file name, (b) a user
 # selected latent semantics, and (c) positive integer k, identifies and lists k most likely matching labels, along with their
 # scores, under the selected latent space.
+import time
 import numpy as np
-import pandas as pd
+import cv2
+from scipy import datasets
 from sklearn.cluster import KMeans
-from scipy.spatial import distance
-from scipy.stats import wasserstein_distance
 import torch
+import pandas as pd
 import torchvision
 from torchvision.transforms import transforms
-import cv2
+from scipy.spatial import distance
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
 
+import matplotlib.pyplot as plt
 from database_connection import connect_to_mongo
-from color_moment import extract_color_moment
-from hog import extract_hog
-from resnet import extract_from_resnet
 
-# Enter the query image ID
-query_image_id = str(input('Enter query image ID'))
 
-# Select latent semantics
+def first_k_unique(lst, k):
+    unique_values = set()
+    result = []
+
+    for value in lst:
+        if value not in unique_values:
+            unique_values.add(value)
+            result.append(value)
+
+            if len(result) == k:
+                break
+
+    return result
+
+
+def cluster_distance_calculator(label, target, image_id, image_weight_pairs):
+    sum_of_weights = 0
+    count = 0
+    selected_target = None
+
+    # Iterate through all images
+    for iterator in range(len(target)):
+        # Check if the label matches the current image_id
+        if int(label) == int(image_id[iterator]):
+            selected_target = target[iterator]
+            sum_of_weights += image_weight_pairs[iterator, 1]
+            count += 1
+    # Calculate average weight
+    average_weight = sum_of_weights / count if count > 0 else 0
+
+    return average_weight, selected_target
+
+
+query_image_id = str(input("Enter the image id:"))
 print("1. SVD.\n2. NNMF.\n3.LDA.\n4.K Means\n", end="")
 ls = int(input("Select one of the above: "))
-ls_k = str(input("Enter the latent sematic dimensionality: "))
-print("1. Color Moment\n2. HoG.\n3. Layer 3.\n4. AvgPool.\n5. FC.")
-feature = int(input("Select one of the features:"))
 
-# Enter the number of top similar labels to be printed
-k_val = int(input("Enter how many output images are required:"))
+k_val = int(input("Enter how many output labels are required:"))
+print("1.LS1 \n2.LS2 \n3.LS3 \n4.LS4")
+ls_k = str(input("Enter the dimnensionality: "))
+feature_names = ["color_moment", "hog", "layer3", "avgpool", "fc"]
+print("1. Color Moment\n2. HoG.\n3. Layer 3.\n4. AvgPool.\n5. FC.")
+feature = int(input("Select one of the feature space from above:"))
 
 client = connect_to_mongo()
-db = client.cse515_project_phase1
-collection = db.phase2_ls1
-re_collection = db.phase2_representative_images
+db = client.CSE515ProjectDB
+collection = db.Phase2
 
-dim_red_names = ["svd", "nnmf", "lda", "kmeans"]
-feature_names = ["color_moment", "hog", "layer3", "avgpool", "fc"]
+distances = {}
+# Assuming latent_space is a list of feature vectors
+target = []
+image_id = []
 
-# Get features of query image
-transforms = transforms.Compose([
-    transforms.ToTensor(),
-])
+# Collect features for images with the target label
+for image_ls in collection.find():
+    target.append(image_ls["target"])
+    image_id.append(int(image_ls["image_id"]))
 
-# Loading the dataset
-dataset = torchvision.datasets.Caltech101(
-    'D:\ASU\Fall Semester 2023 - 24\CSE515 - Multimedia and Web Databases', transform=transforms, download=True)
-data_loader = torch.utils.data.DataLoader(
-    dataset, batch_size=4, shuffle=True, num_workers=8)
-img, label = dataset[int(query_image_id)]
-# resizing the image into 300x10 for Color moment and HoG computation
-resized_img = [cv2.resize(i, (300, 100)) for i in img.numpy()]
-# resizing the image into 224x224 to provide as input to the resnet
-resized_resnet_img = [cv2.resize(i, (224, 224)) for i in img.numpy()]
-query_image_features = {}
-# checking if the image has 3 channels
-if len(resized_img) == 3:
-    color_moment = extract_color_moment(resized_img)
-    hog = extract_hog(resized_img)
-    resnet_features = extract_from_resnet(resized_resnet_img)
-    query_image_features = {
-        "image": img.numpy().tolist(),
-        "target": label,
-        "color_moment": color_moment,
-        "hog": hog,
-        "avgpool": resnet_features["avgpool"],
-        "layer3": resnet_features["layer3"],
-        "fc": resnet_features["fc"],
-    }
+image_weight_pairs = np.loadtxt(
+    f"imageweightpairs_task6_{ls}_{feature}.csv", delimiter=",")
 
-query_image_feature = np.array(
-    query_image_features[feature_names[feature - 1]]).flatten()
+weight_of_the_query_image = image_weight_pairs[int(query_image_id), 1]
+# query_image_target = 1000
 
-# Find distances of the query image to all the cluster centers
-processed_query_feature = []
+for i_target in range(len(image_id)):
+    if int(image_id[i_target]) == int(query_image_id):
+        query_image_target = target[i_target]
 
-for image in re_collection.find({"feature": feature_names[feature - 1]}):
-    if len(image['feature_value']) > 0:
-        d = distance.euclidean(np.array(image["feature_value"]).flatten(
-        ), np.array(query_image_feature).flatten())
-        print(d)
-        processed_query_feature.append(d)
-    else:
-        print("yes")
-        processed_query_feature.append(max(processed_query_feature))
+# Calculate absolute differences between weights
+differences = image_weight_pairs[:, 1] - weight_of_the_query_image
 
-print(np.argmin(processed_query_feature))
+# Get the indices of the k smallest differences
+closest_indices = np.argsort(differences)
 
-file_name = dim_red_names[ls - 1] + "_" + str(ls_k) + "_label_label_similarity_" + \
-    feature_names[feature - 1] + ".csv"
-ls_df = pd.read_csv(file_name)
+# Get the k closest image ids and weights
+closest_image_ids = image_weight_pairs[closest_indices, 0]
+closest_weights = image_weight_pairs[closest_indices, 1]
+closest_image_ids_list = image_weight_pairs[closest_indices, 0].astype(
+    int).tolist()
+selected_target = []
 
-latent_space = [i[1:] for i in ls_df.values.tolist()]
+for i in range(len(closest_image_ids_list)):
+    index = 0
+    selected_input_image_id = closest_image_ids_list[i]
+    for iterator in range(len(image_id)):
+        if int(image_id[iterator]) == selected_input_image_id:
+            index = iterator
+            break
+    selected_target.append(target[int(index)])
 
-latent_space_feature = latent_space[np.argmin(processed_query_feature)]
+unique_elements = first_k_unique(selected_target, k_val)
 
-distances = [distance.euclidean(i, latent_space_feature) for i in latent_space]
+print("\nThe most relevant labels for the image id", query_image_id, "is:")
 
-res = np.argsort(distances)[:k_val]
-
-print(f'Top {k_val} labels for image {query_image_id}')
-for i in range(len(res)):
-    print(f'{i + 1}. {res[i]}')
+for i in range(len(unique_elements)):
+    distance = cluster_distance_calculator(
+        unique_elements[i], target, image_id, image_weight_pairs)
+    print("Label:", unique_elements[i], "Similarity score:", cluster_distance_calculator(
+        unique_elements[i], target, image_id, image_weight_pairs))

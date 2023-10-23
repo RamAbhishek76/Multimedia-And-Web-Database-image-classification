@@ -16,11 +16,12 @@ def fetch_data_from_db(descriptor, is_latent_space):
     Fetch the desired feature for all images from the MongoDB collection.
     """
     client = connect_to_mongo()
-    db = client.cse515
+    db = client.cse515_project_phase1
     if not is_latent_space:
-        collection = db.Phase2
+        collection = db.phase2_features
         data = []
         for image_data in collection.find():
+            print(image_data["image_id"])
             if descriptor in image_data:
                 entry = {
                     'image_id': image_data['image_id'],
@@ -29,7 +30,7 @@ def fetch_data_from_db(descriptor, is_latent_space):
                 }
                 data.append(entry)
     else:
-        collection = db.merged_collection
+        collection = db.phase2_features
         data = []
         k, feature, method = descriptor
         for image_data in collection.find():
@@ -49,10 +50,12 @@ def create_similarity_graph(data, n):
     G = nx.Graph()
     
     for i, entry in enumerate(data):
+        print(entry["image_id"])
         G.add_node(entry['image_id'])
         
         # Compute similarities
         similarities = [np.dot(entry['feature'], other_entry['feature']) for other_entry in data]
+        # print(similarities)
         
         # Get top n most similar images
         top_n_indices = sorted(range(len(similarities)), key=lambda k: similarities[k])[-n:]
@@ -78,6 +81,7 @@ def main(descriptor, n, m, label, is_feature_model):
     data = fetch_data_from_db(descriptor, is_feature_model)
     G = create_similarity_graph(data, n)
     significant_images = personalized_page_rank(G, label, m, data)
+    print(list(significant_images))
     output_plotter_task_11(dataset=dataset, feature_descriptor=descriptor, label=label, input_image_id_list=list(significant_images))
     return significant_images
 

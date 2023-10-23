@@ -87,13 +87,13 @@ while choice != 0:
             img = []
             inp_image_id = bool(
                 str(input("Do you want to input Image Path? (y/N)")) == "y")
-            print(inp_image_id)
+            # print(inp_image_id)
             if inp_image_id:
                 img = input_from_file()
             else:
                 query_image_id = int(input("Enter the image ID:"))
                 img = dataset[query_image_id][0]
-            image_id = int(input("Enter image ID: "))
+            image_id = query_image_id
             k = int(input("How many similar images have to be returned"))
 
             resized_img = [cv2.resize(i, (300, 100)) for i in img.numpy()]

@@ -71,6 +71,7 @@ for image_ls in collection.find({"ls_k": int(ls_k), "dim_red_method": "svd", "fe
     latent_space.append(image_ls["latent_semantic"])
 
 kmeans = KMeans(n_clusters=len(query_image_feature), random_state=42)
+print("latent", latent_space)
 kmeans.fit(latent_space)
 
 # Get the cluster centroids (representative datapoints)

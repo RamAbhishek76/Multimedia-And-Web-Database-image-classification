@@ -199,8 +199,8 @@ match dim_red_method:
             d = [distance.euclidean(np.array(image).flatten(), ls)
                  for ls in latent_semantics]
             latent_semantics_final.append(d)
-            ls_collection.insert_one(
-                {"image_id": inn, "latent_semantic": list(d), "ls_k": k, "dim_red_method": "kmeans", "feature_space": feature_names[feature - 1]})
+            # ls_collection.insert_one(
+            #     {"image_id": inn, "latent_semantic": list(d), "ls_k": k, "dim_red_method": "kmeans", "feature_space": feature_names[feature - 1]})
 
         latent_semantics_final = np.append([[i for i in range(len(latent_semantics_final[0]))]],
                                            latent_semantics_final, axis=0)
